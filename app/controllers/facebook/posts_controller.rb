@@ -31,6 +31,9 @@ module Facebook
       @audit = AuditLog.where(organization: current_organization, subject_type: "FacebookPost", subject_id: @post.id)
                        .includes(:user).order(created_at: :desc).limit(30)
       @timezones = timezone_options
+      @group_shares = @post.facebook_group_shares.includes(:facebook_group, :assignee, :completed_by).chronological.to_a
+      @groups = current_organization.facebook_groups.active.ordered.to_a
+      @assignees = FacebookGroupShare.assignable_users(current_organization)
     end
 
     def new

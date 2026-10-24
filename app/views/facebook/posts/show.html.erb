@@ -42,6 +42,11 @@
       <div class="card-body"><%= render "facebook/posts/preview", post: @post %></div>
     </div>
 
+    <% if @post.published? || @group_shares.any? %>
+      <%= render "facebook/group_shares/post_section", post: @post, shares: @group_shares, groups: @groups,
+                                                       assignees: @assignees, can_edit: can_edit %>
+    <% end %>
+
     <% if @post.ai_generated? && (@post.image_suggestions.any? || Array(@post.ai_metadata["missing_data"]).any?) %>
       <div class="card">
         <div class="card-head"><h2><%= t("marketingos.facebook.posts.ai_extras") %></h2></div>
@@ -170,7 +175,12 @@
       <div class="card-head"><h2><%= t("marketingos.facebook.posts.audit") %></h2></div>
       <div class="card-body tight">
         <% @audit.each do |a| %>
-          <div class="kv"><span class="k"><%= a.action.delete_prefix("facebook.post.") %> <% if a.user %><b style="color:var(--ink)"><%= a.user.name %></b><% end %></span>
+          <% label = if a.action.start_with?("facebook.group_share.")
+                       t("marketingos.facebook_groups.audit.#{a.action.delete_prefix('facebook.group_share.')}", default: a.action)
+                     else
+                       a.action.delete_prefix("facebook.post.")
+                     end %>
+          <div class="kv"><span class="k"><%= label %> <% if a.user %><b style="color:var(--ink)"><%= a.user.name %></b><% end %></span>
             <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(a.created_at) %></span></div>
         <% end %>
       </div>

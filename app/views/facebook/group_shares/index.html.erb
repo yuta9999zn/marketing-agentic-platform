@@ -1,0 +1,56 @@
+<% content_for(:title) { "#{t('marketingos.facebook_groups.queue.title')} · MarketingOS" } %>
+<% can_edit = policy_for.allowed?(:edit) %>
+<% scope = "marketingos.facebook_groups.queue" %>
+<div class="page-head">
+  <div>
+    <h1><%= t("#{scope}.title") %></h1>
+    <div class="sub"><%= t("#{scope}.subtitle") %></div>
+  </div>
+  <span class="spacer"></span>
+  <%= link_to facebook_groups_path, class: "btn btn-secondary" do %><%= icon("users", size: 16) %> <%= t("#{scope}.manage_groups") %><% end %>
+  <%= link_to facebook_posts_path(filter: "published"), class: "btn btn-primary" do %><%= icon("facebook", size: 16) %> <%= t("#{scope}.plan_from_post") %><% end %>
+</div>
+
+<div class="fb-issue fb-issue-info gs-api-notice"><%= icon("alert", size: 16) %><div><%= t("marketingos.facebook_groups.api_notice") %></div></div>
+
+<div class="gs-toolbar">
+  <div class="fb-tabs">
+    <% Facebook::GroupSharesController::FILTERS.each do |key| %>
+      <%= link_to facebook_group_shares_path(filter: key, mine: (@mine ? nil : "0")), class: ["fb-tab", ("active" if @filter == key)] do %>
+        <%= t("#{scope}.filters.#{key}") %>
+        <% if @counts[key].to_i.positive? %><span class="count"><%= @counts[key] %></span><% end %>
+      <% end %>
+    <% end %>
+  </div>
+  <span class="spacer"></span>
+  <div class="fb-tabs">
+    <%= link_to t("#{scope}.mine"), facebook_group_shares_path(filter: @filter), class: ["fb-tab", ("active" if @mine)] %>
+    <%= link_to t("#{scope}.everyone"), facebook_group_shares_path(filter: @filter, mine: "0"), class: ["fb-tab", ("active" unless @mine)] %>
+  </div>
+</div>
+
+<% if @shares.empty? %>
+  <div class="card"><div class="card-body">
+    <% if @groups_count.zero? %>
+      <%= render "shared/empty_state", message: t("#{scope}.no_groups"), icon_name: "users" %>
+      <div style="text-align:center;margin-top:8px"><%= link_to t("marketingos.facebook_groups.groups.add"), new_facebook_group_path, class: "btn btn-primary" if can_edit %></div>
+    <% else %>
+      <%= render "shared/empty_state", message: t("#{scope}.empty.#{@filter}"), icon_name: "check" %>
+    <% end %>
+  </div></div>
+<% else %>
+  <div class="gs-list">
+    <% @shares.each do |share| %>
+      <%= render "facebook/group_shares/share_card", share: share, can_edit: can_edit, assignees: @assignees, show_post: true %>
+    <% end %>
+  </div>
+<% end %>
+
+<details class="card gs-howto">
+  <summary class="card-head"><h2><%= t("#{scope}.how_to.title") %></h2></summary>
+  <div class="card-body">
+    <ol class="gs-steps">
+      <% t("#{scope}.how_to.steps").each do |step| %><li><%= step %></li><% end %>
+    </ol>
+  </div>
+</details>

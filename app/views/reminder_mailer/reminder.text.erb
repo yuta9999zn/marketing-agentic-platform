@@ -2,6 +2,9 @@ Xin chào <%= @reminder.user.name %>,
 
 <% if @reminder.kind == "event_upcoming" -%>
 Sự kiện "<%= @title %>" (<%= @reminder.payload["campaign"] %>) sẽ diễn ra lúc <%= @reminder.payload["starts_at"] %>.
+<% elsif @reminder.kind == "facebook_group_share_due" -%>
+Đến giờ chia sẻ bài "<%= @title %>" vào nhóm "<%= @reminder.payload["group"] %>" (<%= @reminder.payload["at"] %>).
+Mở mục "Hội nhóm Facebook" trong MarketingOS để sao chép nội dung, mở nhóm và đánh dấu đã đăng.
 <% else -%>
 Task "<%= @title %>" sắp đến hạn.
 <% end -%>

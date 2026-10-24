@@ -29,6 +29,7 @@ class FacebookPost < ApplicationRecord
   belongs_to :created_by, class_name: "User", optional: true
   belongs_to :approved_by, class_name: "User", optional: true
   has_many :facebook_publish_attempts, dependent: :destroy
+  has_many :facebook_group_shares, dependent: :destroy
   has_one_attached :image
 
   validates :status, inclusion: { in: STATUSES }

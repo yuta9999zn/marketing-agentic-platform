@@ -145,6 +145,10 @@ audit log. Token Page mã hoá at rest, không ra frontend/log.
   `docs/FACEBOOK_PUBLISHING.md`.
 - Production: worker `bin/jobs` bắt buộc; `FacebookDispatchDueJob` chạy mỗi 2 phút
   (`config/recurring.yml`).
+- **Hội nhóm Facebook**: Meta đã gỡ Groups API (2024) nên không đăng tự động vào
+  nhóm. Mục "Hội nhóm Facebook" lưu danh sách nhóm và luật nhóm, lên lịch chia sẻ
+  bài đã đăng vào từng nhóm (giãn cách), nhắc đúng giờ, cho sao chép nội dung/link,
+  AI viết mỗi nhóm một bản và ghi kết quả. Xem mục 10 của `docs/FACEBOOK_PUBLISHING.md`.
 
 ## Đa ngôn ngữ
 

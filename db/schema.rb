@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_24_090001) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_24_100000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -277,6 +277,51 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_24_090001) do
     t.datetime "updated_at", null: false
     t.index ["organization_id"], name: "index_facebook_authorizations_on_organization_id"
     t.index ["user_id"], name: "index_facebook_authorizations_on_user_id"
+  end
+
+  create_table "facebook_group_shares", force: :cascade do |t|
+    t.integer "organization_id", null: false
+    t.integer "facebook_post_id", null: false
+    t.integer "facebook_group_id", null: false
+    t.integer "assignee_id", null: false
+    t.integer "created_by_id"
+    t.integer "completed_by_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "scheduled_at", null: false
+    t.datetime "completed_at"
+    t.text "message"
+    t.boolean "ai_variant", default: false, null: false
+    t.string "group_post_url"
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["assignee_id", "status"], name: "index_facebook_group_shares_on_assignee_id_and_status"
+    t.index ["assignee_id"], name: "index_facebook_group_shares_on_assignee_id"
+    t.index ["completed_by_id"], name: "index_facebook_group_shares_on_completed_by_id"
+    t.index ["created_by_id"], name: "index_facebook_group_shares_on_created_by_id"
+    t.index ["facebook_group_id"], name: "index_facebook_group_shares_on_facebook_group_id"
+    t.index ["facebook_post_id", "facebook_group_id"], name: "idx_on_facebook_post_id_facebook_group_id_17db4f6bd1", unique: true
+    t.index ["facebook_post_id"], name: "index_facebook_group_shares_on_facebook_post_id"
+    t.index ["organization_id", "status", "scheduled_at"], name: "idx_on_organization_id_status_scheduled_at_8277d39929"
+    t.index ["organization_id"], name: "index_facebook_group_shares_on_organization_id"
+  end
+
+  create_table "facebook_groups", force: :cascade do |t|
+    t.integer "organization_id", null: false
+    t.integer "created_by_id"
+    t.integer "default_assignee_id"
+    t.string "name", null: false
+    t.string "url", null: false
+    t.string "tags"
+    t.text "rules_note"
+    t.boolean "allows_links", default: true, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_facebook_groups_on_created_by_id"
+    t.index ["default_assignee_id"], name: "index_facebook_groups_on_default_assignee_id"
+    t.index ["organization_id", "url"], name: "index_facebook_groups_on_organization_id_and_url", unique: true
+    t.index ["organization_id"], name: "index_facebook_groups_on_organization_id"
   end
 
   create_table "facebook_page_connections", force: :cascade do |t|
@@ -576,6 +621,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_24_090001) do
   add_foreign_key "events", "campaigns"
   add_foreign_key "facebook_authorizations", "organizations"
   add_foreign_key "facebook_authorizations", "users"
+  add_foreign_key "facebook_group_shares", "facebook_groups"
+  add_foreign_key "facebook_group_shares", "facebook_posts"
+  add_foreign_key "facebook_group_shares", "organizations"
+  add_foreign_key "facebook_group_shares", "users", column: "assignee_id"
+  add_foreign_key "facebook_group_shares", "users", column: "completed_by_id"
+  add_foreign_key "facebook_group_shares", "users", column: "created_by_id"
+  add_foreign_key "facebook_groups", "organizations"
+  add_foreign_key "facebook_groups", "users", column: "created_by_id"
+  add_foreign_key "facebook_groups", "users", column: "default_assignee_id"
   add_foreign_key "facebook_page_connections", "organizations"
   add_foreign_key "facebook_page_connections", "users", column: "connected_by_id"
   add_foreign_key "facebook_posts", "artifacts"

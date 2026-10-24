@@ -1,0 +1,93 @@
+<%#
+  Khối "Chia sẻ vào hội nhóm" trên trang bài. locals: post, shares, groups, assignees, can_edit
+%>
+<% scope = "marketingos.facebook_groups.plan" %>
+<% planned_ids = shares.map(&:facebook_group_id).to_set %>
+<div class="card" id="group-shares">
+  <div class="card-head">
+    <h2><%= icon("users", size: 16) %> <%= t("#{scope}.title") %></h2>
+    <% if shares.any? %>
+      <span class="sub"><%= t("#{scope}.progress", done: shares.count(&:done?), total: shares.size) %></span>
+    <% end %>
+    <span class="spacer"></span>
+    <%= link_to t("#{scope}.open_queue"), facebook_group_shares_path(mine: "0", filter: "all"), class: "btn btn-ghost btn-sm" %>
+  </div>
+  <div class="card-body">
+    <div class="fb-issue fb-issue-info gs-api-notice"><%= icon("alert", size: 16) %><div><%= t("marketingos.facebook_groups.api_notice") %></div></div>
+
+    <% if !post.published? %>
+      <div class="gs-hint" style="font-size:13.5px"><%= t("#{scope}.hint_unpublished") %></div>
+    <% elsif groups.empty? %>
+      <div class="gs-hint" style="font-size:13.5px">
+        <%= t("#{scope}.no_groups") %>
+        <% if can_edit %> <%= link_to t("marketingos.facebook_groups.groups.add"), new_facebook_group_path %><% end %>
+      </div>
+    <% elsif can_edit %>
+      <%= form_with url: facebook_post_group_shares_path(post), method: :post, class: "gs-plan",
+                    data: { controller: "group-picker" } do |f| %>
+        <div class="gs-picker-head">
+          <input type="search" class="gs-input" placeholder="<%= t("#{scope}.search_placeholder") %>"
+                 data-group-picker-target="query" data-action="input->group-picker#filter">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="group-picker#selectVisible"><%= t("#{scope}.select_visible") %></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="group-picker#clear"><%= t("#{scope}.clear") %></button>
+          <span class="gs-count"><%= t("#{scope}.selected") %>: <b data-group-picker-target="count">0</b></span>
+        </div>
+        <div class="gs-picker">
+          <% groups.each do |g| %>
+            <% planned = planned_ids.include?(g.id) %>
+            <label class="gs-pick <%= 'is-planned' if planned %>" data-group-picker-target="item"
+                   data-search="<%= [g.name, g.tags].compact.join(' ') %>">
+              <input type="checkbox" name="group_ids[]" value="<%= g.id %>" <%= "disabled" if planned %>
+                     data-action="change->group-picker#update">
+              <span class="gs-pick-name"><%= g.name %></span>
+              <% unless g.allows_links %><span class="pill pill-rose"><%= t("marketingos.facebook_groups.groups.links_blocked") %></span><% end %>
+              <%= group_tag_pills(g) %>
+              <% if planned %><span class="gs-pick-planned"><%= t("#{scope}.already_planned") %></span><% end %>
+            </label>
+          <% end %>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="field">
+            <%= label_tag :start_at, t("#{scope}.start_at") %>
+            <%= datetime_local_field_tag :start_at, group_share_time_input(10.minutes.from_now, post.timezone) %>
+            <div class="gs-hint"><%= t("#{scope}.start_hint", timezone: post.timezone) %></div>
+          </div>
+          <div class="field">
+            <%= label_tag :spacing_minutes, t("#{scope}.spacing") %>
+            <%= select_tag :spacing_minutes, options_for_select(Facebook::GroupShares::Plan::SPACING_OPTIONS.map { |n| [t("#{scope}.minutes", count: n), n] },
+                                                                Facebook::GroupShares::Plan::DEFAULT_SPACING) %>
+            <div class="gs-hint"><%= t("#{scope}.spacing_hint") %></div>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field">
+            <%= label_tag :assignee_id, t("#{scope}.assignee") %>
+            <%= select_tag :assignee_id, options_for_select(assignees.map { |u| [u.name, u.id] }), include_blank: t("#{scope}.assignee_default") %>
+          </div>
+          <div class="field">
+            <label class="fb-check" style="margin-top:22px"><%= check_box_tag :ai_variants, "1", false %> <%= t("#{scope}.ai_variants") %></label>
+            <div class="gs-hint"><%= t("#{scope}.ai_variants_hint") %></div>
+          </div>
+        </div>
+        <%= button_tag t("#{scope}.submit"), type: "submit", class: "btn btn-primary" %>
+      <% end %>
+    <% end %>
+
+    <% if shares.any? %>
+      <div class="gs-plan-list">
+        <div class="gs-plan-list-head">
+          <h3><%= t("#{scope}.list_title") %></h3>
+          <span class="spacer"></span>
+          <% if can_edit && shares.any?(&:pending?) %>
+            <%= button_to t("#{scope}.regenerate"), variants_facebook_post_group_shares_path(post), class: "btn btn-ghost btn-sm",
+                  form: { class: "gs-inline", data: { turbo_confirm: t("#{scope}.regenerate_confirm") } } %>
+          <% end %>
+        </div>
+        <% shares.each do |share| %>
+          <%= render "facebook/group_shares/share_card", share: share, can_edit: can_edit, assignees: assignees, show_post: false %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>

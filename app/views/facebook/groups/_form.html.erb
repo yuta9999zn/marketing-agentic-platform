@@ -1,0 +1,46 @@
+<% scope = "marketingos.facebook_groups.groups.form" %>
+<%= form_with model: group, scope: :group, url: (group.persisted? ? facebook_group_path(group) : facebook_groups_path),
+              method: (group.persisted? ? :patch : :post) do |f| %>
+  <% if group.errors.any? %>
+    <div class="flash flash-alert" role="alert"><%= group.errors.full_messages.to_sentence %></div>
+  <% end %>
+  <div class="form-grid-2">
+    <div class="field">
+      <%= f.label :name, t("#{scope}.name") %>
+      <%= f.text_field :name, required: true, placeholder: t("#{scope}.name_placeholder") %>
+    </div>
+    <div class="field">
+      <%= f.label :url, t("#{scope}.url") %>
+      <%= f.url_field :url, required: true, placeholder: "https://www.facebook.com/groups/..." %>
+      <div class="gs-hint"><%= t("#{scope}.url_hint") %></div>
+    </div>
+  </div>
+  <div class="form-grid-2">
+    <div class="field">
+      <%= f.label :tags, t("#{scope}.tags") %>
+      <%= f.text_field :tags, placeholder: t("#{scope}.tags_placeholder") %>
+      <div class="gs-hint"><%= t("#{scope}.tags_hint") %></div>
+    </div>
+    <div class="field">
+      <%= f.label :default_assignee_id, t("#{scope}.default_assignee") %>
+      <%= f.select :default_assignee_id, assignees.map { |u| [u.name, u.id] }, include_blank: t("#{scope}.no_assignee") %>
+    </div>
+  </div>
+  <div class="field">
+    <%= f.label :rules_note, t("#{scope}.rules_note") %>
+    <%= f.text_area :rules_note, rows: 3, placeholder: t("#{scope}.rules_placeholder") %>
+  </div>
+  <div class="field">
+    <label class="fb-check"><%= f.check_box :allows_links %> <%= t("#{scope}.allows_links") %></label>
+    <div class="gs-hint"><%= t("#{scope}.allows_links_hint") %></div>
+  </div>
+  <% if group.persisted? %>
+    <div class="field">
+      <label class="fb-check"><%= f.check_box :active %> <%= t("#{scope}.active") %></label>
+    </div>
+  <% end %>
+  <div class="camp-actions">
+    <%= f.button t("#{scope}.save"), type: "submit", class: "btn btn-primary" %>
+    <%= link_to t("marketingos.common.cancel"), facebook_groups_path, class: "btn btn-ghost" %>
+  </div>
+<% end %>
