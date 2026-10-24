@@ -9,6 +9,9 @@ class Organization < ApplicationRecord
   has_many :campaigns, dependent: :destroy
   has_many :audit_logs, dependent: :destroy
   has_many :ai_calls, dependent: :destroy
+  has_many :facebook_page_connections, dependent: :destroy
+  has_many :facebook_posts, dependent: :destroy
+  has_many :facebook_authorizations, dependent: :destroy
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: true,

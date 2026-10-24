@@ -1,0 +1,58 @@
+<%= form_with model: post, url: url, method: method, multipart: true do |f| %>
+  <div class="form-grid-2">
+    <div class="field">
+      <%= f.label :title, t("marketingos.facebook.posts.form.title") %>
+      <%= f.text_field :title %>
+    </div>
+    <div class="field">
+      <%= f.label :post_type, t("marketingos.facebook.posts.form.post_type") %>
+      <%= f.select :post_type, FacebookPost::POST_TYPES.map { |pt| [t("marketingos.facebook.post_type.#{pt}"), pt] } %>
+    </div>
+  </div>
+  <div class="field">
+    <%= f.label :message, t("marketingos.facebook.posts.form.message") %>
+    <%= f.text_area :message, rows: 9, required: true, maxlength: FacebookPost::MAX_MESSAGE_LENGTH %>
+    <div style="font-size:12px;color:var(--muted);margin-top:3px"><%= t("marketingos.facebook.posts.form.message_hint") %></div>
+  </div>
+  <div class="form-grid-2">
+    <div class="field">
+      <%= f.label :link, t("marketingos.facebook.posts.form.link") %>
+      <%= f.text_field :link, placeholder: "https://" %>
+    </div>
+    <div class="field">
+      <%= f.label :image, t("marketingos.facebook.posts.form.image") %>
+      <%= f.file_field :image, accept: FacebookPost::IMAGE_CONTENT_TYPES.join(",") %>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px"><%= t("marketingos.facebook.posts.form.image_hint") %></div>
+      <% if post.persisted? && post.image.attached? %>
+        <label style="font-weight:500;font-size:13px"><input type="checkbox" name="remove_image" value="1"> <%= t("marketingos.facebook.posts.form.remove_image") %></label>
+      <% end %>
+    </div>
+  </div>
+  <div class="form-grid-2">
+    <div class="field">
+      <%= f.label :scheduled_at, t("marketingos.facebook.posts.form.scheduled_at") %>
+      <%= f.datetime_local_field :scheduled_at, value: post.scheduled_local&.strftime("%Y-%m-%dT%H:%M") %>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px"><%= t("marketingos.facebook.posts.form.scheduled_hint") %></div>
+    </div>
+    <div class="field">
+      <%= f.label :timezone, t("marketingos.facebook.posts.form.timezone") %>
+      <%= f.select :timezone, timezones.map { |tz| [tz, tz] }, selected: post.timezone %>
+    </div>
+  </div>
+  <% if local_assigns[:campaigns] %>
+    <div class="form-grid-2">
+      <div class="field">
+        <%= f.label :campaign_id, t("marketingos.facebook.posts.form.campaign") %>
+        <%= f.select :campaign_id, campaigns.map { |c| [c.name, c.id] }, include_blank: t("marketingos.common.none") %>
+      </div>
+      <div class="field">
+        <%= f.label :artifact_id, t("marketingos.facebook.posts.form.artifact") %>
+        <%= f.select :artifact_id, artifacts.map { |a| ["#{a.title} (#{a.campaign.name})", a.id] }, include_blank: t("marketingos.common.none") %>
+      </div>
+    </div>
+  <% end %>
+  <div class="camp-actions">
+    <%= f.button submit_label, type: "submit", class: "btn btn-primary" %>
+    <%= link_to t("marketingos.common.cancel"), (post.persisted? ? facebook_post_path(post) : facebook_posts_path), class: "btn btn-ghost" %>
+  </div>
+<% end %>

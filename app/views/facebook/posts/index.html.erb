@@ -1,0 +1,61 @@
+<% content_for(:title) { "#{t('marketingos.facebook.posts.title')} · MarketingOS" } %>
+<div class="page-head">
+  <div>
+    <h1><%= t("marketingos.facebook.posts.title") %></h1>
+    <div class="sub">
+      <% if @connection %><%= icon("facebook", size: 14) %> <%= @connection.page_name %> · <%= fb_connection_status_pill(@connection) %>
+      <% else %><%= t("marketingos.facebook.posts.need_connection") %><% end %>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <%= link_to t("marketingos.facebook.connection.title"), facebook_connection_path, class: "btn btn-secondary" %>
+  <% if policy_for.allowed?(:edit) && @connection %>
+    <%= link_to new_facebook_post_path, class: "btn btn-primary" do %><%= icon("spark", size: 16) %> <%= t("marketingos.facebook.posts.new") %><% end %>
+  <% end %>
+</div>
+
+<div class="fb-tabs">
+  <% { "all" => nil, "pending" => "pending_approval", "scheduled" => "scheduled", "published" => "published", "failed" => "failed", "drafts" => "draft" }.each do |key, status| %>
+    <%= link_to facebook_posts_path(filter: key), class: ["fb-tab", ("active" if @filter == key)] do %>
+      <%= t("marketingos.facebook.posts.filters.#{key}") %>
+      <% if status && @counts[status].to_i.positive? %><span class="count"><%= @counts[status] %></span><% end %>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-body tight">
+        <% if @posts.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.facebook.posts.empty"), hint: t("marketingos.facebook.posts.empty_hint"), icon_name: "facebook" %>
+        <% else %>
+          <% @posts.each do |p| %>
+            <%= render "facebook/posts/row", post: p %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  <div class="ws-right">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.activity") %></h2><span class="sub"><%= t("marketingos.facebook.posts.activity_sub") %></span></div>
+      <div class="card-body tight">
+        <% if @recent_attempts.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.facebook.posts.no_activity"), icon_name: "clock" %>
+        <% else %>
+          <% @recent_attempts.each do |a| %>
+            <div class="kv">
+              <span class="k">
+                <span class="pill <%= { 'success' => 'pill-teal', 'transient_failure' => 'pill-amber', 'permanent_failure' => 'pill-rose', 'skipped' => 'pill-gray', 'started' => 'pill' }[a.outcome] %>"><%= t("marketingos.facebook.attempt_outcome.#{a.outcome}") %></span>
+                <%= link_to (a.facebook_post.title.presence || a.facebook_post.message.to_s.truncate(40)), facebook_post_path(a.facebook_post) %>
+                <% if a.mock? %><span class="pill pill-gray">mock</span><% end %>
+              </span>
+              <span class="v" style="font-weight:500;color:var(--muted)">#<%= a.attempt_number %> · <%= fmt_datetime(a.created_at) %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

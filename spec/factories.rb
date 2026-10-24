@@ -49,3 +49,26 @@ FactoryBot.define do
     ends_at { 1.day.from_now + 1.hour }
   end
 end
+
+FactoryBot.define do
+  factory :facebook_page_connection do
+    organization
+    page_id { "100000000000001" }
+    page_name { "Demo Page" }
+    page_category { "Marketing Agency" }
+    connection_mode { "mock" }
+    status { "connected" }
+    granted_scopes { Facebook::Config::REQUIRED_SCOPES }
+    page_tasks { %w[CREATE_CONTENT MANAGE] }
+    access_token { "mock_page_token_1" }
+  end
+
+  factory :facebook_post do
+    organization
+    facebook_page_connection { association :facebook_page_connection, organization: instance.organization }
+    message { "Xin chào từ MarketingOS #test" }
+    post_type { "text" }
+    timezone { "Asia/Ho_Chi_Minh" }
+    status { "draft" }
+  end
+end

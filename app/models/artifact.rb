@@ -20,6 +20,7 @@ class Artifact < ApplicationRecord
   has_many :approvals, dependent: :destroy
   has_many :approval_rounds, dependent: :destroy
   has_many :comments, dependent: :destroy
+  has_many :facebook_posts, dependent: :nullify
   # Audit AI trỏ về artifact qua khoá ngoại. Xoá artifact thì GIỮ dòng audit
   # (chỉ bỏ con trỏ) — audit không được biến mất. Thiếu dòng này, xoá campaign
   # hoặc khách hàng có nội dung do AI tạo sẽ vi phạm khoá ngoại và lỗi 500.

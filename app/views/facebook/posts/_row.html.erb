@@ -1,0 +1,18 @@
+<div class="task-row">
+  <span class="thumb <%= post.post_type == 'photo' ? 'teal' : '' %>"><%= icon(post.post_type == "photo" ? "image" : "facebook", size: 20) %></span>
+  <div class="task-main">
+    <div class="task-title"><%= link_to (post.title.presence || post.message.to_s.truncate(70)), facebook_post_path(post) %>
+      <% if post.ai_generated? %><span class="pill pill-violet">AI</span><% end %>
+      <% if post.published_via == "mock" %><span class="pill pill-gray">mock</span><% end %></div>
+    <div class="task-sub">
+      <% if post.campaign %><%= link_to post.campaign.name, campaign_path(post.campaign) %> · <% end %>
+      <% if post.scheduled? %><%= icon("clock", size: 12) %> <%= fb_local_time(post) %>
+      <% elsif post.published? %><%= t("marketingos.facebook.posts.published_at", at: fmt_datetime(post.published_at)) %>
+        <% if post.permalink_url %> · <%= link_to t("marketingos.facebook.posts.view_on_facebook"), post.permalink_url, target: "_blank", rel: "noopener" %><% end %>
+      <% elsif post.failed? %><span class="blocked-tag"><%= icon("alert", size: 12) %> <%= fb_error_label(post.last_error_code) %></span>
+      <% else %><%= fmt_datetime(post.updated_at) %><% end %>
+      <% if post.retrying? %> · <%= t("marketingos.facebook.posts.next_attempt", at: fmt_datetime(post.next_attempt_at)) %><% end %>
+    </div>
+  </div>
+  <div class="task-right"><%= fb_post_status_pill(post) %></div>
+</div>

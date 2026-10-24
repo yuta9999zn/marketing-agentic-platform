@@ -19,28 +19,62 @@
         <aside class="sidebar">
           <div class="brand"><span class="logo">M</span> MarketingOS</div>
 
-          <div class="nav-group-label"><%= t("marketingos.nav.workspace") %></div>
           <% is_scoped = campaign_scoped_role? %>
-          <% nav = [
+          <% can_manage = policy_for.allowed?(:manage) %>
+          <% nav_main = [
             { key: "dashboard",  label: t("marketingos.nav.overview"),       icon: "home",     url: root_path, show: true },
-            { key: "campaigns",  label: t("marketingos.nav.campaigns"),      icon: "folder",   url: campaigns_path, show: true,
+            { key: "campaigns",  label: t("marketingos.nav.campaigns"),      icon: "target",   url: campaigns_path, show: true,
               count: is_scoped ? nil : Campaign.in_org(current_organization).count },
-            { key: "content_studio", label: t("marketingos.nav.content_studio"), icon: "pen", url: content_studio_path, show: !is_scoped },
+            { key: "content_studio", label: t("marketingos.nav.content_studio"), icon: "doc", url: content_studio_path, show: !is_scoped },
             { key: "calendar",   label: t("marketingos.nav.calendar"),       icon: "calendar", url: calendar_path, show: !is_scoped },
-            { key: "clients",    label: t("marketingos.nav.clients"),        icon: "briefcase", url: clients_path, show: policy_for.allowed?(:manage) },
-            { key: "templates",  label: t("marketingos.nav.templates"),      icon: "layers",   url: templates_path, show: !is_scoped },
-            { key: "members",    label: t("marketingos.nav.settings"),       icon: "settings", url: members_path, show: policy_for.allowed?(:admin) }
+            { key: "posts",      label: t("marketingos.nav.social"),         icon: "users",    url: facebook_posts_path, show: !is_scoped,
+              count: (is_scoped ? nil : FacebookPost.in_org(current_organization).awaiting_approval.count.then { |c| c.positive? ? c : nil }) }
           ] %>
-          <% nav.each do |item| %>
-            <% next unless item[:show] %>
-            <%= link_to item[:url], class: ["nav-item", ("active" if controller_name == item[:key] || (item[:key] == "dashboard" && controller_name == "dashboard"))].compact do %>
-              <%= icon(item[:icon]) %>
-              <%= item[:label] %>
-              <% if item[:count] %><span class="count"><%= item[:count] %></span><% end %>
-            <% end %>
+          <% nav_channels = [
+            { key: "connections", label: "Facebook Fanpage", icon: "facebook", url: facebook_connection_path, show: !is_scoped, css: "ch-fb" },
+            { key: nil, label: "Instagram", icon: "instagram", show: !is_scoped, css: "ch-ig", soon: true },
+            { key: nil, label: "TikTok", icon: "tiktok", show: !is_scoped, css: "ch-tt", soon: true },
+            { key: nil, label: "YouTube", icon: "youtube", show: !is_scoped, css: "ch-yt", soon: true },
+            { key: nil, label: t("marketingos.nav.website_seo"), icon: "globe", show: !is_scoped, css: "ch-web", soon: true },
+            { key: nil, label: t("marketingos.nav.email_marketing"), icon: "mail", show: !is_scoped, css: "ch-mail", soon: true }
+          ] %>
+          <% nav_tools = [
+            { key: "clients",    label: t("marketingos.nav.clients"),        icon: "briefcase", url: clients_path, show: can_manage },
+            { key: "templates",  label: t("marketingos.nav.templates"),      icon: "layers",   url: templates_path, show: !is_scoped },
+            { key: "members",    label: t("marketingos.nav.settings"),       icon: "cpu",      url: members_path, show: policy_for.allowed?(:admin) },
+            { key: "user_settings", label: t("marketingos.nav.user_settings"), icon: "settings", url: settings_path, show: true }
+          ] %>
+          <% render_nav = ->(item) {
+            next unless item[:show]
+            if item[:soon]
+              content_tag(:span, class: "nav-item nav-soon", title: t("marketingos.nav.coming_soon")) do
+                content_tag(:span, icon(item[:icon]), class: "ch-ico #{item[:css]}") + item[:label] + content_tag(:span, t("marketingos.nav.soon"), class: "count")
+              end
+            else
+              active = controller_name == item[:key] || (item[:key] == "dashboard" && controller_name == "dashboard")
+              link_to(item[:url], class: ["nav-item", ("active" if active)].compact) do
+                (item[:css] ? content_tag(:span, icon(item[:icon]), class: "ch-ico #{item[:css]}") : icon(item[:icon])) + item[:label] +
+                  (item[:count] ? content_tag(:span, item[:count], class: "count") : "".html_safe)
+              end
+            end
+          } %>
+          <div class="nav-group-label"><%= t("marketingos.nav.workspace") %></div>
+          <% nav_main.each { |item| concat render_nav.(item) } %>
+          <% unless is_scoped %>
+            <div class="nav-group-label"><%= t("marketingos.nav.channels") %></div>
+            <% nav_channels.each { |item| concat render_nav.(item) } %>
           <% end %>
+          <div class="nav-group-label"><%= t("marketingos.nav.tools") %></div>
+          <% nav_tools.each { |item| concat render_nav.(item) } %>
 
           <div class="sidebar-foot">
+            <% unless is_scoped %>
+              <div class="ai-usage">
+                <div class="ai-usage-head"><span><%= t("marketingos.nav.ai_usage") %></span><b><%= AiCall.where(organization: current_organization, created_at: Time.current.beginning_of_month..).count %></b></div>
+                <div class="ai-usage-bar"><div style="width:<%= [AiCall.where(organization: current_organization, created_at: Time.current.beginning_of_month..).count, 100].min %>%"></div></div>
+                <div class="ai-usage-foot"><%= ai_status_badge %></div>
+              </div>
+            <% end %>
             <div class="ws-chip">
               <span class="ws-avatar"><%= initials(current_organization&.name) %></span>
               <div>

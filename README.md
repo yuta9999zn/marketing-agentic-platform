@@ -67,7 +67,8 @@ Mọi test AI dùng Fake adapter của harness — **không gọi mạng**.
   prompt + provider + thời gian + trạng thái rà soát bởi con người; phải qua
   approval mới thành chính thức. AI khai báo "thiếu dữ liệu" thay vì bịa.
 - Email chỉ là giao dịch (lời mời, duyệt). Dev: adapter test/log, không gửi thật.
-- Không có scraping, bulk mail, auto-post social.
+- Không có scraping, bulk mail. Đăng Facebook chỉ qua Graph API chính thức, sau khi
+  có người duyệt (xem mục Facebook Fanpage).
 
 ## Multi-tenant & quyền
 
@@ -85,7 +86,9 @@ Mọi test AI dùng Fake adapter của harness — **không gọi mạng**.
 app/
   controllers/    # auth, campaigns, artifacts, approvals, tasks, comments, events,
                   # members, clients (CRM), calendar, templates, prompt_templates,
-                  # user_settings
+                  # user_settings, facebook/ (connection OAuth + posts)
+  services/facebook/     # OAuth, token cipher, Graph API client (live/mock), publish/retry
+  jobs/           # AI nền, nhắc nhở, FacebookPublishJob / FacebookDispatchDueJob
   models/         # organization, membership, campaign, artifact (+versions), approval,
                   # prompt_template, project_template, reminder...
   policies/       # RBAC trung tâm
@@ -128,6 +131,21 @@ $env:AI_PROVIDER = "ollama"; $env:OLLAMA_MODEL = "qwen2.5:7b"
 - **Ollama không tạo được ảnh** — nó viết prompt ảnh chất lượng cao, còn render
   ảnh cần dịch vụ riêng.
 
+## Facebook Fanpage — duyệt rồi đăng tự động
+
+Kết nối Page qua Meta OAuth (dán link Fanpage → đăng nhập Facebook → chọn Page),
+AI viết caption/hashtag/CTA, **bắt buộc duyệt tay** rồi lên lịch; worker nền đăng
+qua Graph API chính thức, lưu post ID + permalink, retry có giới hạn, kill switch,
+audit log. Token Page mã hoá at rest, không ra frontend/log.
+
+- Thử ngay không cần Meta: `FACEBOOK_MOCK_MODE=true` (chỉ dev/test; bài gắn nhãn MOCK).
+- Kết nối Page thật: điền `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`,
+  `FACEBOOK_TOKEN_ENCRYPTION_KEY`; khai Redirect URI trong Meta App.
+- Hướng dẫn đầy đủ (tạo app, quyền, token, ENV, triển khai, App Review):
+  `docs/FACEBOOK_PUBLISHING.md`.
+- Production: worker `bin/jobs` bắt buộc; `FacebookDispatchDueJob` chạy mỗi 2 phút
+  (`config/recurring.yml`).
+
 ## Đa ngôn ngữ
 
 - Giao diện có tiếng Việt và tiếng Anh; toàn bộ copy nằm trong
@@ -166,6 +184,7 @@ Khi harness gốc cập nhật: `bin/sync_harness` rồi `bundle install`.
 
 ## Tài liệu thêm
 
+- `docs/FACEBOOK_PUBLISHING.md` — Facebook Fanpage: Meta app, OAuth, quyền, token, ENV, triển khai.
 - `docs/DEPLOY_VPS.md` — hướng dẫn triển khai VPS; `docs/DEPLOY_REPORT.md` — các
   lỗi chặn triển khai đã tìm ra và kết quả chạy thật (mới nhất).
 - `docs/PHASE3_REPORT.md` — AI thật chạy trên máy: Ollama, tác vụ chạy nền, dịch

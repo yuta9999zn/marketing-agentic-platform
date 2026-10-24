@@ -15,6 +15,7 @@ class Campaign < ApplicationRecord
   has_many :events, dependent: :destroy
   has_many :surveys, dependent: :destroy
   has_many :campaign_collaborator_tokens, dependent: :destroy
+  has_many :facebook_posts, dependent: :nullify
 
   validates :name, presence: true
   validates :status, inclusion: { in: STATUSES }

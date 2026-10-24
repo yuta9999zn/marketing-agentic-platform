@@ -52,16 +52,20 @@ RSpec.describe "Nhắc nhở theo cấu hình người dùng" do
 
   describe "event" do
     it "đặt lịch nhắc cho người tham dự theo lead time riêng của họ" do
-      other = create(:user, reminder_lead_minutes: 1440)
-      create(:membership, organization: org, user: other, role: "copywriter")
-      event = create(:event, campaign: campaign, starts_at: Time.zone.local(2026, 9, 20, 14, 0),
-                             ends_at: Time.zone.local(2026, 9, 20, 15, 0))
+      # Ghim thời gian: sự kiện cố định ngày 20/09/2026 sẽ thành "đã qua" khi
+      # test chạy sau ngày đó và bị bỏ qua đúng theo thiết kế.
+      travel_to Time.zone.local(2026, 9, 1, 9, 0) do
+        other = create(:user, reminder_lead_minutes: 1440)
+        create(:membership, organization: org, user: other, role: "copywriter")
+        event = create(:event, campaign: campaign, starts_at: Time.zone.local(2026, 9, 20, 14, 0),
+                               ends_at: Time.zone.local(2026, 9, 20, 15, 0))
 
-      Reminders::ScheduleForEvent.call(event, user)
-      Reminders::ScheduleForEvent.call(event, other)
+        Reminders::ScheduleForEvent.call(event, user)
+        Reminders::ScheduleForEvent.call(event, other)
 
-      expect(Reminder.find_by(user: user).run_at.in_time_zone).to eq(Time.zone.local(2026, 9, 20, 13, 0))
-      expect(Reminder.find_by(user: other).run_at.in_time_zone).to eq(Time.zone.local(2026, 9, 19, 14, 0))
+        expect(Reminder.find_by(user: user).run_at.in_time_zone).to eq(Time.zone.local(2026, 9, 20, 13, 0))
+        expect(Reminder.find_by(user: other).run_at.in_time_zone).to eq(Time.zone.local(2026, 9, 19, 14, 0))
+      end
     end
 
     it "không đặt lịch cho sự kiện đã qua" do
