@@ -108,6 +108,20 @@ với `published_via = mock` và ID có tiền tố `mock`. **Không gì lên Fa
 Dev dùng Active Job adapter `:async`: bài lên lịch chỉ đăng khi tiến trình
 server còn chạy. Production dùng Solid Queue (bền, xem mục 7).
 
+Ghi chú khi chạy local:
+- `.env` được nạp tự động ở **development** (gem `dotenv`, nhóm development).
+  Test không đọc `.env`; production nhận ENV từ docker/kamal. Sửa `.env` xong
+  phải **khởi động lại server**.
+- Giữ dòng `SECRET_KEY_BASE` ở dạng comment trong `.env` dev. Dòng
+  `SECRET_KEY_BASE=` rỗng làm Rails dev lỗi khởi động.
+- Windows: gọi `C:\Ruby33-x64\bin\bundle.bat` (hoặc `.\start.ps1`) để tránh
+  shim `bundle` của Node.js.
+- Các nút Duyệt / Đăng ngay / Huỷ có hộp xác nhận của trình duyệt — bấm OK.
+
+Đã kiểm thử thủ công trên máy local (mock): kết nối Page → AI nháp → gửi duyệt
+→ duyệt → Đăng ngay; và bài tự viết → duyệt → lên lịch +2 phút → job tự đăng
+đúng giờ.
+
 ## 6. Kết nối Fanpage thật (an toàn)
 
 1. Điền `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_TOKEN_ENCRYPTION_KEY`

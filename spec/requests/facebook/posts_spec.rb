@@ -78,6 +78,38 @@ RSpec.describe "Facebook posts", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
+  # Hồi quy: form phải gửi đúng scope mà controller đọc (params[:post]).
+  # Trước đây form_with model sinh "facebook_post[...]" → mọi trường bị bỏ qua.
+  it "form tạo/sửa bài gửi tên trường khớp controller (tạo thật qua tên trường của form)" do
+    login_as(owner)
+    get new_facebook_post_path
+    form = Nokogiri::HTML(response.body).css("form[action='#{facebook_posts_path}']").last
+    names = form.css("[name]").map { |n| n["name"] }
+    expect(names).to include("post[message]", "post[title]", "post[scheduled_at]", "post[timezone]", "post[image]")
+    expect(names.grep(/\Afacebook_post\[/)).to be_empty
+
+    fields = { "post[title]" => "Thủ công", "post[message]" => "Nội dung từ form",
+               "post[post_type]" => "text", "post[timezone]" => "Asia/Ho_Chi_Minh" }
+    expect(names).to include(*fields.keys)
+    post facebook_posts_path, params: Rack::Utils.parse_nested_query(Rack::Utils.build_query(fields))
+    fb_post = FacebookPost.last
+    expect(response).to redirect_to(facebook_post_path(fb_post))
+    expect(fb_post.message).to eq("Nội dung từ form")
+    expect(fb_post.title).to eq("Thủ công")
+
+    get edit_facebook_post_path(fb_post)
+    edit_form = Nokogiri::HTML(response.body).css("form[action='#{facebook_post_path(fb_post)}']").first
+    expect(edit_form.css("[name]").map { |n| n["name"] }).to include("post[message]")
+  end
+
+  it "lỗi validation hiển thị tiếng Việt, không lộ 'Translation missing'" do
+    login_as(owner)
+    post facebook_posts_path, params: { post: { message: "", timezone: "UTC" } }
+    follow_redirect!
+    expect(response.body).not_to include("Translation missing")
+    expect(response.body).to include("Nội dung bài đăng không được để trống")
+  end
+
   it "multi-tenant: không xem/duyệt được bài của org khác" do
     foreign = create(:facebook_post, organization: other_org, facebook_page_connection: other_conn)
     login_as(owner)
