@@ -181,3 +181,53 @@ việc đó cần App ID/Secret và tài khoản quản trị Page của bạn (
    cho người ngoài).
 3. Điền ENV (mục 3) và khởi động lại `app` + `worker`.
 4. Tài khoản kết nối phải là quản trị viên/biên tập viên của Page.
+
+## 10. Hội nhóm Facebook — chia sẻ bằng tay, có nhắc giờ
+
+Meta đã gỡ **Groups API** (Graph API v19.0, đầu năm 2024; quyền
+`publish_to_groups` bị thu hồi ở mọi version). Không phần mềm nào đăng vào nhóm
+được bằng cách chính thức. Công cụ "auto đăng nhóm" bằng điều khiển trình duyệt
+vi phạm điều khoản Meta và dễ làm khoá tài khoản/Page, nên MarketingOS **không**
+làm việc đó. Thay vào đó, app chuẩn bị mọi thứ để người dùng tự đăng thật nhanh:
+
+```
+Danh sách nhóm (nhập tay: link, nhãn, luật nhóm, cho/cấm link, người phụ trách)
+→ Bài đã lên Page → "Chia sẻ vào hội nhóm": chọn nhóm, giờ bắt đầu, giãn cách
+→ mỗi nhóm một lượt chia sẻ, giờ hẹn cách nhau (mặc định 30 phút)
+→ đến giờ: Reminder (in-app/email theo cài đặt từng người)
+→ trang "Việc chia sẻ hội nhóm": Sao chép nội dung · Sao chép link bài Page
+  · Tải ảnh · Mở nhóm → người dùng tự đăng → dán link bài trong nhóm
+→ Đã đăng | Admin từ chối | Bỏ qua (mở lại được)
+```
+
+| Lớp | File |
+|---|---|
+| Model | `app/models/facebook_group.rb`, `app/models/facebook_group_share.rb` |
+| Lên kế hoạch, giãn cách, chọn người phụ trách | `app/services/facebook/group_shares/plan.rb` |
+| Đánh dấu kết quả, đổi giờ, mở lại, xoá | `app/services/facebook/group_shares/transitions.rb` |
+| Nhắc giờ (dùng lại `Reminder`) | `app/services/facebook/group_shares/reminders.rb` |
+| AI viết mỗi nhóm một bản | `app/services/ai/workflows/facebook_group_variants.rb`, `app/jobs/facebook_group_variants_job.rb` |
+| UI | `app/controllers/facebook/groups_controller.rb`, `group_shares_controller.rb`, `app/views/facebook/group_shares/*`, `app/views/facebook/groups/*` |
+
+Chi tiết:
+- **Link nhóm** được chuẩn hoá về `https://www.facebook.com/groups/<id>` (bỏ
+  `?ref=...`, `m.`/`web.`). Một nhóm chỉ có một lần trong mỗi workspace.
+- **Giãn cách** 10–120 phút. Đăng dồn cùng lúc vào nhiều nhóm dễ bị Facebook coi
+  là spam. Nhóm đã có trong kế hoạch của bài thì không tạo trùng.
+- **Người phụ trách**: chọn khi lên kế hoạch; để trống thì theo người phụ trách
+  mặc định của nhóm, không có nữa thì là người lên kế hoạch. Chỉ thành viên nội
+  bộ (không giao cho client).
+- **Nhắc giờ**: mỗi lượt có một `Reminder` (khoá `fb_group_share:<id>:...`) theo
+  kênh người phụ trách chọn ở Cài đặt, và một `ReminderDispatchJob` đặt **đúng
+  giờ hẹn** (sweeper production chỉ chạy 30 phút/lần). Đổi giờ/người → lời nhắc
+  cũ bị huỷ; đánh dấu xong/xoá → huỷ lời nhắc.
+- **AI biến thể** (tuỳ chọn): giữ nguyên dữ kiện (giá, diện tích, SĐT), chỉ đổi
+  câu mở đầu và cách viết; nhóm cấm link thì không chèn URL. Sửa tay nội dung sẽ
+  bỏ nhãn "AI viết lại". Provider thật chạy nền và báo qua thông báo.
+- **Xoá nhóm** đã có lịch sử chia sẻ chỉ ẩn nhóm (giữ báo cáo); quyền xoá = manage.
+- Mọi thao tác ghi `AuditLog` (`facebook.group.*`, `facebook.group_share.*`).
+
+Kiểm thử: `spec/models/facebook_group_spec.rb`,
+`spec/services/facebook/group_shares_spec.rb`,
+`spec/requests/facebook/group_shares_spec.rb` (gửi form bằng đúng tên trường đọc
+từ HTML đã render, quyền, cách ly workspace, nhắc giờ, email).

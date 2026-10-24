@@ -98,6 +98,20 @@ Rails.application.routes.draw do
         post :retry
         post :reopen
       end
+      # Kế hoạch chia sẻ bài đã đăng vào hội nhóm (người dùng tự đăng).
+      resources :group_shares, only: %i[create] do
+        collection { post :variants }
+      end
+    end
+
+    # Hội nhóm Facebook: danh bạ nhóm + hàng đợi chia sẻ bằng tay.
+    # (Meta đã gỡ Groups API năm 2024 — không có đăng tự động vào nhóm.)
+    resources :groups, except: %i[show]
+    resources :group_shares, only: %i[index update destroy] do
+      member do
+        post :complete
+        post :reopen
+      end
     end
   end
 end

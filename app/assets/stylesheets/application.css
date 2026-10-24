@@ -572,3 +572,56 @@ dialog form { margin: 0; }
 @media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .hero-art { display: none; } }
 @media (max-width: 768px) { .kpi-grid, .content-cards { grid-template-columns: 1fr 1fr; } .hero { padding: 22px; } .hero h1 { font-size: 26px; } .hero-new { position: static; margin-top: 12px; } }
 @media (max-width: 480px) { .kpi-grid, .content-cards { grid-template-columns: 1fr; } }
+
+/* ── Hội nhóm Facebook: chia sẻ bằng tay (Meta đã gỡ Groups API) ───────── */
+.gs-api-notice { margin-bottom: 14px; font-size: 13px; }
+.gs-toolbar { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.gs-toolbar .spacer { flex: 1; }
+.gs-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.gs-card { border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--card); padding: 14px 16px; box-shadow: var(--shadow-card); }
+.gs-card + .gs-card { margin-top: 0; }
+.gs-plan-list .gs-card { box-shadow: none; margin-top: 10px; }
+.gs-card.gs-overdue { border-color: var(--rose-600); }
+.gs-card.gs-done { background: var(--surface); }
+.gs-head { display: flex; gap: 10px; align-items: flex-start; }
+.gs-head .spacer { flex: 1; }
+.gs-title { min-width: 0; }
+.gs-group { font-weight: 700; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; }
+.gs-meta { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.gs-rules { display: flex; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: var(--radius-control); background: var(--amber-50); color: #7A4B00; font-size: 13px; }
+.gs-label { display: flex; gap: 8px; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; }
+.gs-text { width: 100%; font: inherit; font-size: 14px; line-height: 1.45; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 8px 10px; resize: vertical; background: #fff; color: var(--ink); }
+.gs-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.gs-buttons .btn.is-copied { background: var(--teal-600); border-color: var(--teal-600); color: #fff; }
+.gs-complete { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.gs-complete-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 6px; }
+.gs-input { width: 100%; font: inherit; font-size: 13.5px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 7px 10px; background: #fff; color: var(--ink); }
+.gs-more { margin-top: 10px; font-size: 13px; }
+.gs-more summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.gs-change { margin: 8px 0; }
+.gs-result { margin-top: 8px; font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.gs-note-text { width: 100%; color: var(--ink); }
+.gs-inline { display: inline; }
+.gs-hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.gs-tag { font-size: 11px; }
+.gs-tags { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+.gs-inactive td { opacity: .6; }
+.gs-picker-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.gs-picker-head .gs-input { flex: 1; min-width: 200px; }
+.gs-count { font-size: 13px; color: var(--muted); }
+.gs-picker { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 6px; margin-bottom: 14px; }
+.gs-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+.gs-pick:hover { background: var(--indigo-50); }
+.gs-pick.is-planned { opacity: .6; cursor: default; }
+.gs-pick-name { font-weight: 600; }
+.gs-pick-planned { font-size: 12px; color: var(--muted); }
+.gs-plan-list { margin-top: 18px; }
+.gs-plan-list-head { display: flex; align-items: center; gap: 8px; }
+.gs-plan-list-head h3 { margin: 0; font-size: 15px; }
+.gs-plan-list-head .spacer { flex: 1; }
+.gs-howto summary { cursor: pointer; list-style: none; }
+.gs-steps { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.6; }
+@media (max-width: 720px) {
+  .gs-complete-fields { grid-template-columns: 1fr; }
+  .gs-head { flex-wrap: wrap; }
+}

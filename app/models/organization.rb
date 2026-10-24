@@ -12,6 +12,8 @@ class Organization < ApplicationRecord
   has_many :facebook_page_connections, dependent: :destroy
   has_many :facebook_posts, dependent: :destroy
   has_many :facebook_authorizations, dependent: :destroy
+  has_many :facebook_groups, dependent: :destroy
+  has_many :facebook_group_shares, dependent: :destroy
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: true,

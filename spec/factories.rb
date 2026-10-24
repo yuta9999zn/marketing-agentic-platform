@@ -70,5 +70,22 @@ FactoryBot.define do
     post_type { "text" }
     timezone { "Asia/Ho_Chi_Minh" }
     status { "draft" }
+
+    # Bài đã lên Page (dựng thẳng trạng thái, không đi qua luồng duyệt).
+    trait :published do
+      after(:create) do |post|
+        post.update_columns(status: "published", published_at: Time.current, published_via: "mock",
+                            facebook_post_id: "#{post.facebook_page_connection.page_id}_mock1",
+                            permalink_url: "https://www.facebook.com/#{post.facebook_page_connection.page_id}/posts/mock1")
+      end
+    end
+  end
+
+  factory :facebook_group do
+    organization
+    sequence(:name) { |n| "Nhóm BĐS #{n}" }
+    sequence(:url) { |n| "https://www.facebook.com/groups/nhombds#{n}" }
+    tags { "Cầu Giấy, căn hộ" }
+    allows_links { true }
   end
 end

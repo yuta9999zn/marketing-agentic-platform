@@ -1,0 +1,74 @@
+<% content_for(:title) { "#{t('marketingos.facebook_groups.groups.title')} · MarketingOS" } %>
+<% can_edit = policy_for.allowed?(:edit) %>
+<% can_manage = policy_for.allowed?(:manage) %>
+<% scope = "marketingos.facebook_groups.groups" %>
+<div class="breadcrumb"><%= link_to t("marketingos.facebook_groups.queue.title"), facebook_group_shares_path %> <%= icon("chev-r", size: 14) %> <%= t("#{scope}.title") %></div>
+<div class="page-head">
+  <div>
+    <h1><%= t("#{scope}.title") %></h1>
+    <div class="sub"><%= t("#{scope}.subtitle") %></div>
+  </div>
+  <span class="spacer"></span>
+  <% if can_edit %>
+    <%= link_to new_facebook_group_path, class: "btn btn-primary" do %><%= icon("plus", size: 16) %> <%= t("#{scope}.add") %><% end %>
+  <% end %>
+</div>
+
+<div class="gs-toolbar">
+  <div class="fb-tabs">
+    <%= link_to t("#{scope}.all_tags"), facebook_groups_path(inactive: (@show_inactive ? "1" : nil)), class: ["fb-tab", ("active" if @tag.nil?)] %>
+    <% @tags.each do |tag_name| %>
+      <%= link_to tag_name, facebook_groups_path(tag: tag_name, inactive: (@show_inactive ? "1" : nil)), class: ["fb-tab", ("active" if @tag == tag_name)] %>
+    <% end %>
+  </div>
+  <span class="spacer"></span>
+  <%= link_to (@show_inactive ? t("#{scope}.hide_inactive") : t("#{scope}.show_inactive")),
+              facebook_groups_path(tag: @tag, inactive: (@show_inactive ? nil : "1")), class: "fb-tab" %>
+</div>
+
+<div class="card">
+  <div class="card-body tight">
+    <% if @groups.empty? %>
+      <%= render "shared/empty_state", message: t("#{scope}.empty"), icon_name: "users" %>
+    <% else %>
+      <table class="list gs-table">
+        <thead>
+          <tr>
+            <th><%= t("#{scope}.columns.name") %></th>
+            <th><%= t("#{scope}.columns.rules") %></th>
+            <th><%= t("#{scope}.columns.assignee") %></th>
+            <th><%= t("#{scope}.columns.stats") %></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @groups.each do |g| %>
+            <tr class="<%= 'gs-inactive' unless g.active? %>">
+              <td>
+                <%= link_to g.name, g.url, target: "_blank", rel: "noopener", class: "gs-group" %>
+                <% unless g.active? %><span class="pill pill-gray"><%= t("#{scope}.inactive") %></span><% end %>
+                <div class="gs-tags"><%= group_tag_pills(g) %></div>
+              </td>
+              <td style="font-size:13px;max-width:320px">
+                <span class="pill <%= g.allows_links ? 'pill-teal' : 'pill-rose' %>"><%= g.allows_links ? t("#{scope}.links_allowed") : t("#{scope}.links_blocked") %></span>
+                <% if g.rules_note.present? %><div style="color:var(--muted);margin-top:3px"><%= g.rules_note.truncate(140) %></div><% end %>
+              </td>
+              <td style="font-size:13px"><%= g.default_assignee&.name || "—" %></td>
+              <td style="font-size:13px;white-space:nowrap">
+                <%= t("#{scope}.stats", posted: @stats[[g.id, "posted"]].to_i, rejected: @stats[[g.id, "rejected"]].to_i,
+                                        pending: @stats[[g.id, "pending"]].to_i) %>
+              </td>
+              <td style="white-space:nowrap;text-align:right">
+                <% if can_edit %><%= link_to t("marketingos.common.edit"), edit_facebook_group_path(g), class: "btn btn-ghost btn-sm" %><% end %>
+                <% if can_manage && g.active? %>
+                  <%= button_to t("#{scope}.remove"), facebook_group_path(g), method: :delete, class: "btn btn-ghost btn-sm",
+                        form: { class: "gs-inline", data: { turbo_confirm: t("#{scope}.remove_confirm", name: g.name) } } %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+</div>

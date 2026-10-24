@@ -1,0 +1,112 @@
+<%#
+  Một lượt chia sẻ vào nhóm. Người dùng tự đăng trên Facebook; thẻ này chuẩn bị
+  nội dung, mở nhóm và ghi kết quả. Không form lồng nhau: mỗi hành động một form.
+  locals: share, can_edit, assignees, show_post (true ở hàng đợi, false ở trang bài)
+%>
+<% post = share.facebook_post %>
+<% group = share.facebook_group %>
+<% scope = "marketingos.facebook_groups.share" %>
+<div class="gs-card <%= 'gs-overdue' if share.overdue? %> <%= 'gs-done' if share.done? %>" id="<%= dom_id(share) %>"
+     data-controller="clipboard" data-clipboard-done-value="<%= t("#{scope}.copied") %>">
+  <div class="gs-head">
+    <div class="gs-title">
+      <%= link_to group.url, target: "_blank", rel: "noopener", class: "gs-group" do %>
+        <%= icon("users", size: 16) %> <%= group.name %>
+      <% end %>
+      <div class="gs-meta">
+        <%= icon("clock", size: 13) %> <%= group_share_time(share) %>
+        · <%= t("#{scope}.assignee") %>: <b><%= share.assignee.name %></b>
+        <% if show_post %>
+          · <%= t("#{scope}.page_post") %>: <%= link_to (post.title.presence || post.message.to_s.truncate(40)), facebook_post_path(post) %>
+        <% end %>
+      </div>
+    </div>
+    <span class="spacer"></span>
+    <%= group_share_status_pill(share) %>
+  </div>
+
+  <% if group.rules_note.present? || !group.allows_links %>
+    <div class="gs-rules">
+      <%= icon("alert", size: 14) %>
+      <div>
+        <% if group.rules_note.present? %><div><b><%= t("#{scope}.rules") %>:</b> <%= group.rules_note %></div><% end %>
+        <% unless group.allows_links %><div><%= t("#{scope}.links_blocked_warning") %></div><% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <% if share.pending? %>
+    <%= form_with url: facebook_group_share_path(share), method: :patch, class: "gs-text-form" do |f| %>
+      <label class="gs-label">
+        <%= t("#{scope}.text_label") %>
+        <% if share.ai_variant? %><span class="pill pill-violet"><%= t("#{scope}.ai_variant") %></span><% end %>
+      </label>
+      <%= f.text_area :message, value: share.text_to_post, rows: 6, data: { clipboard_target: "source" },
+                                readonly: !can_edit, class: "gs-text" %>
+      <div class="gs-buttons">
+        <button type="button" class="btn btn-primary btn-sm" data-action="clipboard#copy"><%= icon("doc", size: 14) %> <%= t("#{scope}.copy_text") %></button>
+        <% if group.allows_links && share.page_link.present? %>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="clipboard#copy"
+                  data-clipboard-text-param="<%= share.page_link %>"><%= icon("link", size: 14) %> <%= t("#{scope}.copy_link") %></button>
+        <% end %>
+        <% if post.image.attached? %>
+          <%= link_to rails_blob_path(post.image, disposition: "attachment"), class: "btn btn-secondary btn-sm" do %>
+            <%= icon("image", size: 14) %> <%= t("#{scope}.download_image") %>
+          <% end %>
+        <% end %>
+        <%= link_to group.url, target: "_blank", rel: "noopener", class: "btn btn-success btn-sm" do %>
+          <%= icon("users", size: 14) %> <%= t("#{scope}.open_group") %> ↗
+        <% end %>
+        <% if can_edit %>
+          <%= f.button t("#{scope}.save_text"), type: "submit", class: "btn btn-ghost btn-sm" %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if can_edit %>
+      <%= form_with url: complete_facebook_group_share_path(share), method: :post, class: "gs-complete" do |f| %>
+        <div class="gs-complete-fields">
+          <%= f.url_field :group_post_url, placeholder: t("#{scope}.group_post_url"), class: "gs-input" %>
+          <%= f.text_field :note, placeholder: t("#{scope}.note_placeholder"), class: "gs-input gs-note" %>
+        </div>
+        <div class="gs-buttons">
+          <%= f.button t("#{scope}.mark_posted"), type: "submit", name: "status", value: "posted", class: "btn btn-success btn-sm" %>
+          <%= f.button t("#{scope}.mark_rejected"), type: "submit", name: "status", value: "rejected", class: "btn btn-secondary btn-sm" %>
+          <%= f.button t("#{scope}.mark_skipped"), type: "submit", name: "status", value: "skipped", class: "btn btn-ghost btn-sm" %>
+        </div>
+      <% end %>
+
+      <details class="gs-more">
+        <summary><%= t("#{scope}.change") %></summary>
+        <%= form_with url: facebook_group_share_path(share), method: :patch, class: "gs-change" do |f| %>
+          <div class="form-grid-2">
+            <div class="field">
+              <%= f.label :scheduled_at, t("#{scope}.scheduled_at") %>
+              <%= f.datetime_local_field :scheduled_at, value: group_share_time_input(share.scheduled_at, share.timezone) %>
+            </div>
+            <div class="field">
+              <%= f.label :assignee_id, t("#{scope}.assignee") %>
+              <%= f.select :assignee_id, assignees.map { |u| [u.name, u.id] }, selected: share.assignee_id %>
+            </div>
+          </div>
+          <div class="gs-buttons">
+            <%= f.button t("#{scope}.save"), type: "submit", class: "btn btn-primary btn-sm" %>
+          </div>
+        <% end %>
+        <%= button_to t("#{scope}.remove"), facebook_group_share_path(share), method: :delete, class: "btn btn-ghost btn-sm",
+              form: { data: { turbo_confirm: t("#{scope}.remove_confirm", group: group.name) } } %>
+      </details>
+    <% end %>
+  <% else %>
+    <div class="gs-result">
+      <%= t("#{scope}.completed_by", user: share.completed_by&.name || "—", at: (share.completed_at ? fmt_datetime(share.completed_at) : "—")) %>
+      <% if share.group_post_url.present? %>
+        · <%= link_to t("#{scope}.view_group_post"), share.group_post_url, target: "_blank", rel: "noopener" %>
+      <% end %>
+      <% if share.note.present? %><div class="gs-note-text"><%= share.note %></div><% end %>
+      <% if can_edit %>
+        <%= button_to t("#{scope}.reopen"), reopen_facebook_group_share_path(share), class: "btn btn-ghost btn-sm", form: { class: "gs-inline" } %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

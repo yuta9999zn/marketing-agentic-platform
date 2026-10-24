@@ -32,6 +32,9 @@
           ] %>
           <% nav_channels = [
             { key: "connections", label: "Facebook Fanpage", icon: "facebook", url: facebook_connection_path, show: !is_scoped, css: "ch-fb" },
+            { key: "group_shares", also: %w[groups], label: t("marketingos.facebook_groups.nav"), icon: "users",
+              url: facebook_group_shares_path, show: !is_scoped, css: "ch-fb",
+              count: (is_scoped ? nil : FacebookGroupShare.in_org(current_organization).where(assignee: current_user).due.count.then { |c| c.positive? ? c : nil }) },
             { key: nil, label: "Instagram", icon: "instagram", show: !is_scoped, css: "ch-ig", soon: true },
             { key: nil, label: "TikTok", icon: "tiktok", show: !is_scoped, css: "ch-tt", soon: true },
             { key: nil, label: "YouTube", icon: "youtube", show: !is_scoped, css: "ch-yt", soon: true },
@@ -51,7 +54,8 @@
                 content_tag(:span, icon(item[:icon]), class: "ch-ico #{item[:css]}") + item[:label] + content_tag(:span, t("marketingos.nav.soon"), class: "count")
               end
             else
-              active = controller_name == item[:key] || (item[:key] == "dashboard" && controller_name == "dashboard")
+              active = controller_name == item[:key] || Array(item[:also]).include?(controller_name) ||
+                       (item[:key] == "dashboard" && controller_name == "dashboard")
               link_to(item[:url], class: ["nav-item", ("active" if active)].compact) do
                 (item[:css] ? content_tag(:span, icon(item[:icon]), class: "ch-ico #{item[:css]}") : icon(item[:icon])) + item[:label] +
                   (item[:count] ? content_tag(:span, item[:count], class: "count") : "".html_safe)

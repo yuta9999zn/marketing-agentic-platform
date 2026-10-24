@@ -7,6 +7,7 @@ class ReminderMailer < ApplicationMailer
     subject =
       case reminder.kind
       when "event_upcoming" then "[MarketingOS] Sắp diễn ra: #{@title}"
+      when "facebook_group_share_due" then "[MarketingOS] Đến giờ đăng nhóm #{reminder.payload['group']}"
       else "[MarketingOS] Sắp đến hạn: #{@title}"
       end
     mail to: reminder.user.email, subject: subject
