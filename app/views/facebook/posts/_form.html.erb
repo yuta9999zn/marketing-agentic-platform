@@ -1,4 +1,5 @@
-<%= form_with model: post, url: url, method: method, multipart: true do |f| %>
+<%# scope: :post — PostsController đọc params[:post] (mặc định form_with model sẽ là facebook_post). %>
+<%= form_with model: post, scope: :post, url: url, method: method, multipart: true do |f| %>
   <div class="form-grid-2">
     <div class="field">
       <%= f.label :title, t("marketingos.facebook.posts.form.title") %>

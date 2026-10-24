@@ -3,6 +3,34 @@ vi:
     errors:
       messages:
         record_invalid: "Dữ liệu không hợp lệ: %{errors}"
+    attributes:
+      facebook_post:
+        title: "Tên bài"
+        message: "Nội dung bài đăng"
+        link: "Liên kết"
+        post_type: "Loại bài"
+        timezone: "Múi giờ"
+        scheduled_at: "Giờ đăng"
+        campaign: "Campaign"
+        status: "Trạng thái"
+  errors:
+    format: "%{attribute} %{message}"
+    messages:
+      blank: "không được để trống"
+      present: "phải để trống"
+      empty: "không được để trống"
+      invalid: "không hợp lệ"
+      inclusion: "không nằm trong danh sách cho phép"
+      exclusion: "không được phép"
+      taken: "đã được sử dụng"
+      too_long: "quá dài (tối đa %{count} ký tự)"
+      too_short: "quá ngắn (tối thiểu %{count} ký tự)"
+      wrong_length: "sai độ dài (phải đúng %{count} ký tự)"
+      not_a_number: "phải là số"
+      greater_than: "phải lớn hơn %{count}"
+      less_than: "phải nhỏ hơn %{count}"
+      confirmation: "không khớp với %{attribute}"
+      required: "phải có"
   date:
     formats:
       short: "%d/%m/%Y"

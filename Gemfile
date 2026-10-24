@@ -62,6 +62,10 @@ end
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
+
+  # Nạp .env khi chạy local (FACEBOOK_*, AI_PROVIDER...). Chỉ development:
+  # test không bị .env ảnh hưởng, production nhận ENV từ docker/kamal.
+  gem "dotenv", "~> 3.1"
 end
 
 group :test do

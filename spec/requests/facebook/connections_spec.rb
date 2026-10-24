@@ -98,6 +98,26 @@ RSpec.describe "Facebook connection", type: :request do
     expect(org.reload.facebook_publishing_paused).to be true
   end
 
+  # Hồi quy: ô "từ khoá chặn" từng gửi tên "blocked_terms" (thiếu scope) nên
+  # controller đọc params[:connection] không bao giờ lưu được.
+  it "form cài đặt Page gửi connection[blocked_terms]; lưu từ khoá chặn và tạm dừng Page" do
+    login_as(owner)
+    post start_facebook_connection_path, params: { page_url: "100000000000001" }
+    get response.location
+    get facebook_connection_path
+    form = Nokogiri::HTML(response.body).css("form[action='#{facebook_connection_path}']")
+                   .find { |f| f.at_css("input[name='_method'][value='patch']") }
+    names = form.css("[name]").map { |n| n["name"] }
+    expect(names).to include("connection[blocked_terms]", "connection[publishing_paused]", "connection[auto_publish_enabled]")
+    expect(names).not_to include("blocked_terms")
+
+    patch facebook_connection_path, params: { connection: { blocked_terms: "giảm giá 100%\ncam kết chữa khỏi",
+                                                            publishing_paused: "1", auto_publish_enabled: "0" } }
+    conn = org.facebook_page_connections.first
+    expect(conn.blocked_terms_list).to eq([ "giảm giá 100%", "cam kết chữa khỏi" ])
+    expect(conn.publishing_paused).to be true
+  end
+
   it "chưa cấu hình Meta app và không mock → start báo lỗi rõ" do
     login_as(owner)
     with_env("FACEBOOK_MOCK_MODE" => nil, "FACEBOOK_APP_ID" => nil, "FACEBOOK_APP_SECRET" => nil) do

@@ -168,7 +168,7 @@
 
         <% if @connection && can_manage %>
           <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
-          <%= form_with url: facebook_connection_path, method: :patch do |f| %>
+          <%= form_with url: facebook_connection_path, method: :patch, scope: :connection do |f| %>
             <div class="field">
               <label><input type="hidden" name="connection[publishing_paused]" value="0">
                 <input type="checkbox" name="connection[publishing_paused]" value="1" <%= "checked" if @connection.publishing_paused? %>>
