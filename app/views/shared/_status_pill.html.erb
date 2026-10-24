@@ -1,0 +1,25 @@
+<%# locals: status — hiển thị pill trạng thái có text + chấm màu (không chỉ màu) %>
+<%
+  map = {
+    "draft" => %w[pill-gray Chưa gửi],
+    "in_review" => %w[pill-amber Chờ duyệt],
+    "pending" => %w[pill-amber Chờ duyệt],
+    "approved" => %w[pill-teal Đã duyệt],
+    "changes_requested" => %w[pill-rose Cần chỉnh sửa],
+    "rejected" => %w[pill-rose Từ chối],
+    "open" => %w[pill-gray Mở],
+    "in_progress" => %w[pill-amber Đang làm],
+    "done" => %w[pill-teal Hoàn thành],
+    "brief" => %w[pill Đang brief],
+    "research" => %w[pill Research],
+    "strategy" => %w[pill Strategy],
+    "persona" => %w[pill Persona],
+    "content_plan" => %w[pill Content plan],
+    "review" => %w[pill-amber Review],
+    "active" => %w[pill-teal Đang chạy],
+    "delivered" => %w[pill-teal Đã giao],
+    "archived" => %w[pill-gray Lưu trữ]
+  }
+  css, label = map.fetch(status.to_s, ["pill", status.to_s.humanize])
+%>
+<span class="pill <%= css %>"><span class="pdot"></span><%= label %></span>

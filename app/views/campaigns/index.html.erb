@@ -1,0 +1,37 @@
+<div class="page-head">
+  <div>
+    <h1><%= t("marketingos.nav.campaigns") %></h1>
+    <div class="sub"><%= t("marketingos.campaigns.count_in_workspace", count: @campaigns.size) %></div>
+  </div>
+  <span class="spacer"></span>
+  <% if policy_for.allowed?(:manage) %>
+    <%= link_to new_campaign_path, class: "btn btn-primary" do %><%= icon("plus", size: 16) %> <%= t("marketingos.dashboard.new_campaign") %><% end %>
+  <% end %>
+</div>
+
+<% if @campaigns.empty? %>
+  <div class="card"><div class="card-body">
+    <%= render "shared/empty_state", message: t("marketingos.campaigns.empty"),
+          hint: t("marketingos.campaigns.empty_hint"), icon_name: "folder" %>
+  </div></div>
+<% else %>
+  <div class="card"><div class="card-body tight">
+    <% @campaigns.each do |c| %>
+      <div class="task-row">
+        <span class="thumb"><%= initials(c.client.name) %></span>
+        <div class="task-main">
+          <div class="task-title"><%= link_to c.name, campaign_path(c) %></div>
+          <div class="task-sub">
+            <%= c.client.name %>
+            · <%= t("marketingos.campaigns.open_tasks", count: c.tasks.open.count) %>
+            · <%= t("marketingos.dashboard.pending_count", count: c.artifacts.where(approval_status: "in_review").count) %>
+          </div>
+        </div>
+        <div class="task-right" style="flex-direction:column;align-items:flex-end;gap:4px">
+          <%= render "shared/status_pill", status: c.status %>
+          <span class="due"><%= t("marketingos.dashboard.percent_done", percent: c.progress_percent) %></span>
+        </div>
+      </div>
+    <% end %>
+  </div></div>
+<% end %>

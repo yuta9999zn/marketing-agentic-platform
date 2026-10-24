@@ -1,0 +1,27 @@
+<div class="breadcrumb"><%= link_to @campaign.name, campaign_path(@campaign) %> <%= icon("chev-r", size: 12) %> <span><%= t("marketingos.common.edit") %></span></div>
+<div class="page-head"><h1><%= t("marketingos.campaign_form.edit_title") %></h1></div>
+
+<div class="card" style="max-width:720px">
+  <div class="card-body" style="padding-top:20px">
+    <%= form_with model: @campaign, local: true do |f| %>
+      <% if @campaign.errors.any? %>
+        <div class="flash flash-alert" role="alert"><%= @campaign.errors.full_messages.to_sentence %></div>
+      <% end %>
+      <div class="field"><%= f.label :client_id, t("marketingos.campaign_form.client") %><%= f.collection_select :client_id, @clients, :id, :name, {} %></div>
+      <div class="field"><%= f.label :name, t("marketingos.campaign_form.name") %><%= f.text_field :name %></div>
+      <div class="field"><%= f.label :objective, t("marketingos.campaign_form.objective") %><%= f.text_area :objective, rows: 3 %></div>
+      <div class="field">
+        <%= f.label :status, t("marketingos.campaign_form.status") %>
+        <%= f.select :status, Campaign::STATUSES %>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :start_date, t("marketingos.campaign_form.starts") %><%= f.date_field :start_date %></div>
+        <div class="field"><%= f.label :end_date, t("marketingos.campaign_form.ends") %><%= f.date_field :end_date %></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary"><%= t("marketingos.campaign_form.save") %></button>
+        <%= link_to t("marketingos.common.back"), campaign_path(@campaign), class: "btn btn-ghost" %>
+      </div>
+    <% end %>
+  </div>
+</div>

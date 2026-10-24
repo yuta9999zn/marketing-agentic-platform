@@ -1,0 +1,226 @@
+<%
+  artifact = @artifact
+  campaign = artifact.campaign
+  can_edit = policy_for.allowed?(:edit, subject: campaign)
+  can_approve = policy_for.allowed?(:approve, subject: campaign)
+  open_round = @open_round
+  i_am_reviewer = open_round && Array(open_round.reviewer_ids).include?(current_user.id)
+  my_decision = open_round && open_round.approval_decisions.find_by(user: current_user)
+  artifact_comments = artifact.comments.order(created_at: :asc)
+  reviewer_options = current_organization.users.where.not(id: current_user.id)
+%>
+
+<div class="breadcrumb">
+  <%= link_to t("marketingos.nav.campaigns"), campaigns_path %> <%= icon("chev-r", size: 12) %>
+  <%= link_to campaign.name, campaign_path(campaign) %> <%= icon("chev-r", size: 12) %>
+  <span><%= artifact.title %></span>
+</div>
+
+<div class="page-head">
+  <div>
+    <h1 style="font-size:24px"><%= artifact.title %></h1>
+    <div class="sub" style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+      <span class="pill pill-gray"><%= kind_label(artifact.kind) %></span>
+      <span class="pill pill-gray">v<%= artifact.version %></span>
+      <% if artifact.locale %><span class="pill pill-gray"><%= artifact.locale.upcase %></span><% end %>
+      <% if artifact.channel.present? %><span class="pill pill-gray"><%= artifact.channel %></span><% end %>
+      <%= render "shared/status_pill", status: artifact.approval_status %>
+      <% if artifact.ai_label %><span class="pill pill-violet"><%= icon("spark", size: 12) %> <%= artifact.ai_label %></span><% end %>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <% if can_edit && %w[draft changes_requested rejected].include?(artifact.approval_status) %>
+      <%= link_to edit_artifact_path(artifact), class: "btn btn-secondary" do %><%= icon("pen", size: 15) %> <%= t("marketingos.artifact.edit") %><% end %>
+    <% end %>
+    <% if can_edit && artifact.approval_status == "in_review" %>
+      <%= button_to t("marketingos.artifact.withdraw"), withdraw_artifact_path(artifact), method: :post, class: "btn btn-ghost", form: { style: "display:inline" } %>
+    <% end %>
+    <% if can_edit && artifact.kind != "translation" %>
+      <%= button_to t("marketingos.artifact.translate_en"), translate_artifact_path(artifact, target_locale: "en"), method: :post,
+            class: "btn btn-secondary", form: { style: "display:inline" },
+            data: { turbo_confirm: t("marketingos.artifact.translate_confirm") } %>
+    <% end %>
+    <% if can_edit %>
+      <%= button_to t("marketingos.artifact.duplicate"), duplicate_artifact_path(artifact), method: :post, class: "btn btn-ghost", form: { style: "display:inline" } %>
+    <% end %>
+  </div>
+</div>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.artifact.content") %></h2>
+        <span class="sub"><%= t("marketingos.artifact.version_updated", version: artifact.version, time: fmt_datetime(artifact.updated_at)) %></span>
+      </div>
+      <div class="card-body">
+        <% if artifact.kind == "translation" && artifact.ai_metadata["source_artifact_id"] %>
+          <div class="pill pill-violet" style="margin-bottom:10px">
+            <%= icon("spark", size: 12) %> <%= t("marketingos.artifact.translated_from") %>
+            <%= link_to "##{artifact.ai_metadata['source_artifact_id']} v#{artifact.ai_metadata['source_version']}",
+                  artifact_path(artifact.ai_metadata["source_artifact_id"]) %>
+          </div>
+        <% end %>
+        <div style="white-space:pre-wrap;font-size:14.5px;line-height:1.65"><%= artifact.body %></div>
+        <% if artifact.source_note.present? %>
+          <p style="font-size:12.5px;color:var(--muted);margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+            <b><%= t("marketingos.artifact.source_note") %></b> <%= artifact.source_note %>
+          </p>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.artifact.feedback") %></h2><span class="sub"><%= t("marketingos.artifact.comment_count", count: artifact_comments.size) %></span></div>
+      <div class="card-body">
+        <% if policy_for.allowed?(:comment, subject: campaign) %>
+          <%= form_with url: comments_path, local: true do %>
+            <input type="hidden" name="comment[campaign_id]" value="<%= campaign.id %>">
+            <input type="hidden" name="comment[artifact_id]" value="<%= artifact.id %>">
+            <textarea name="comment[body]" rows="2" required placeholder="<%= t('marketingos.artifact.comment_placeholder') %>"></textarea>
+            <button class="btn btn-primary btn-sm" style="margin-top:8px"><%= t("marketingos.artifact.send_comment") %></button>
+          <% end %>
+        <% end %>
+        <% if artifact_comments.any? %>
+          <div style="margin-top:14px">
+            <% artifact_comments.each do |c| %>
+              <div class="task-row" style="align-items:flex-start"
+                   data-controller="quick-translate"
+                   data-quick-translate-campaign-id-value="<%= campaign.id %>"
+                   data-quick-translate-target-value="<%= I18n.locale == :en ? 'en' : 'vi' %>"
+                   data-quick-translate-loading-value="<%= t('marketingos.quick_translate.loading') %>">
+                <%= avatar(c.user.name) %>
+                <div class="task-main">
+                  <div class="task-sub" style="margin:0 0 2px"><b style="color:var(--ink)"><%= c.user.name %></b> · <%= fmt_datetime(c.created_at) %></div>
+                  <div style="font-size:14px" data-quick-translate-target="source"><%= c.body %></div>
+                  <div class="qt-output" data-quick-translate-target="output" hidden></div>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm qt-btn"
+                        data-quick-translate-target="button"
+                        data-action="quick-translate#translate"><%= t("marketingos.quick_translate.button") %></button>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.artifact.version_history") %></h2></div>
+      <div class="card-body tight">
+        <% @versions.each do |v| %>
+          <div class="kv">
+            <span class="k">v<%= v.version %> <% if v.ai_generated? %>· <span style="color:#5B21B6">AI</span><% end %>
+              <% if v.ai_metadata["restored_from_version"] %>· <%= t("marketingos.artifact.restored_from", version: v.ai_metadata["restored_from_version"]) %><% end %></span>
+            <span class="v" style="font-weight:500;color:var(--muted);display:flex;gap:8px;align-items:center">
+              <%= fmt_datetime(v.created_at) %>
+              <% if can_edit && v.version != artifact.version %>
+                <%= button_to t("marketingos.artifact.restore"), restore_version_artifact_path(artifact, version_number: v.version),
+                      method: :post, class: "btn btn-ghost btn-sm", form: { style: "display:inline" } %>
+              <% end %>
+            </span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-right">
+    <%# ── Gửi duyệt: mở round mới với reviewers ─────────────── %>
+    <% if can_edit && %w[draft changes_requested rejected].include?(artifact.approval_status) %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.artifact.submit_title") %></h2></div>
+        <div class="card-body">
+          <%= form_with url: submit_artifact_path(artifact), method: :post, local: true do %>
+            <div class="field">
+              <label for="reviewer-ids"><%= t("marketingos.artifact.reviewers") %></label>
+              <select id="reviewer-ids" name="reviewer_ids[]" multiple size="4" required>
+                <% reviewer_options.each do |u| %>
+                  <option value="<%= u.id %>"><%= u.name %> (<%= u.role_in(current_organization) %>)</option>
+                <% end %>
+              </select>
+            </div>
+            <div class="form-grid-2">
+              <div class="field"><label for="rv-due"><%= t("marketingos.artifact.review_due") %></label><input type="date" id="rv-due" name="due_date"></div>
+              <div class="field"><label for="rv-quorum"><%= t("marketingos.artifact.quorum") %></label><input type="number" id="rv-quorum" name="quorum" min="1"></div>
+            </div>
+            <button class="btn btn-warn"><%= icon("clock", size: 15) %> <%= t("marketingos.artifact.open_round") %></button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# ── Quyết định của tôi trên round đang mở ──────────────── %>
+    <% if open_round && i_am_reviewer && my_decision.nil? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.artifact.decision_title") %></h2><span class="sub"><%= t("marketingos.artifact.round_label", id: open_round.id, version: open_round.artifact_version) %></span></div>
+        <div class="card-body">
+          <%= form_with url: approvals_path, method: :post do %>
+            <input type="hidden" name="round_id" value="<%= open_round.id %>">
+            <div class="field">
+              <label for="ap-note"><%= t("marketingos.artifact.decision_note") %></label>
+              <input type="text" id="ap-note" name="note" placeholder="<%= t('marketingos.artifact.decision_note_placeholder') %>">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button name="decision" value="approved" class="btn btn-success"><%= icon("check", size: 15) %> <%= t("marketingos.artifact.approve") %></button>
+              <button name="decision" value="changes_requested" class="btn btn-warn"><%= t("marketingos.artifact.request_changes") %></button>
+              <button name="decision" value="rejected" class="btn btn-danger"><%= t("marketingos.artifact.reject") %></button>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% elsif open_round && i_am_reviewer && my_decision %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.artifact.your_decision") %></h2></div>
+        <div class="card-body">
+          <p style="font-size:13.5px;margin:0">
+            <%= t("marketingos.artifact.your_decision_note",
+                  decision: t("marketingos.decisions.#{my_decision.decision}", default: my_decision.decision)) %>
+          </p>
+        </div>
+      </div>
+    <% end %>
+
+    <%# ── Lịch sử vòng duyệt ─────────────────────────────────── %>
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.artifact.rounds") %></h2><span class="sub"><%= t("marketingos.artifact.rounds_count", count: @rounds.size) %></span></div>
+      <div class="card-body tight">
+        <% if @rounds.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.artifact.no_rounds"), icon_name: "doc" %>
+        <% else %>
+          <% @rounds.each do |r| %>
+            <div class="kv">
+              <span class="k">#<%= r.id %> · v<%= r.artifact_version %></span>
+              <span class="v"><%= render "shared/status_pill", status: r.status %></span>
+            </div>
+            <% r.approval_decisions.each do |d| %>
+              <div style="font-size:12.5px;color:var(--muted);margin:2px 0 8px;padding-left:8px;border-left:2px solid var(--line)">
+                <b style="color:var(--ink)"><%= d.user.name %></b> — <%= t("marketingos.decisions.#{d.decision}", default: d.decision) %>
+                <% if d.note.present? %> “<%= d.note %>”<% end %>
+              </div>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <% if artifact.ai_generated? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.artifact.ai_origin") %></h2></div>
+        <div class="card-body tight">
+          <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_workflow") %></span><span class="v"><%= artifact.ai_metadata["workflow"] %></span></div>
+          <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_provider") %></span><span class="v"><%= artifact.ai_metadata["provider"] %></span></div>
+          <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_generated_at") %></span><span class="v"><%= artifact.ai_metadata["generated_at"] %></span></div>
+          <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_human_reviewed") %></span><span class="v"><%= artifact.ai_metadata["human_reviewed"] ? t("marketingos.artifact.ai_reviewed_yes") : t("marketingos.artifact.ai_reviewed_no") %></span></div>
+          <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_consent") %></span><span class="v"><%= artifact.ai_metadata["consent_external"] ? t("marketingos.artifact.ai_consent_yes") : t("marketingos.artifact.ai_consent_no") %></span></div>
+          <% if artifact.ai_metadata["missing_data"].present? %>
+            <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_missing") %></span><span class="v" style="max-width:60%"><%= artifact.ai_metadata["missing_data"].join(", ") %></span></div>
+          <% end %>
+          <% if artifact.ai_metadata["licensing_note"] %>
+            <div class="kv"><span class="k"><%= t("marketingos.artifact.ai_licensing") %></span><span class="v" style="max-width:60%;font-weight:500;color:var(--muted)"><%= artifact.ai_metadata["licensing_note"] %></span></div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

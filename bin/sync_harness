@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Đồng bộ gem cdfl_harness từ bản gốc trên máy dev vào vendor/gems/.
+#
+# Vì sao phải vendor: Gemfile không được trỏ vào đường dẫn tuyệt đối của một máy
+# (vd D:/CDFL harness) — Docker và VPS Linux không có đường dẫn đó, build sẽ hỏng.
+#
+# Dùng: bin/sync_harness [đường-dẫn-nguồn]
+# Mặc định nguồn: D:/CDFL harness (đặt HARNESS_SOURCE để đổi)
+
+require "fileutils"
+
+source = ARGV[0] || ENV["HARNESS_SOURCE"] || "D:/CDFL harness"
+target = File.expand_path("../vendor/gems/cdfl_harness", __dir__)
+
+unless File.directory?(File.join(source, "lib"))
+  abort "Không tìm thấy harness tại #{source.inspect}. Truyền đường dẫn: bin/sync_harness <path>"
+end
+
+# Chỉ lấy thứ gem cần chạy. KHÔNG copy .git, spec, examples — vendor phải gọn.
+KEEP = %w[lib docs README.md LICENSE cdfl_harness.gemspec].freeze
+
+FileUtils.rm_rf(target)
+FileUtils.mkdir_p(target)
+KEEP.each do |entry|
+  path = File.join(source, entry)
+  next unless File.exist?(path)
+
+  FileUtils.cp_r(path, target)
+end
+
+version_file = File.join(target, "lib/cdfl_harness/version.rb")
+version = File.exist?(version_file) ? File.read(version_file)[/VERSION\s*=\s*"([^"]+)"/, 1] : "?"
+files = Dir.glob(File.join(target, "**/*")).count { |f| File.file?(f) }
+
+puts "Đã đồng bộ cdfl_harness v#{version} → vendor/gems/cdfl_harness (#{files} file)"
+puts "Chạy tiếp: bundle install && bundle exec rspec"

@@ -1,0 +1,80 @@
+<div class="breadcrumb"><%= link_to t("marketingos.nav.campaigns"), campaigns_path %> <%= icon("chev-r", size: 12) %> <span><%= t("marketingos.campaign_form.new_breadcrumb") %></span></div>
+<div class="page-head"><h1><%= t("marketingos.campaign_form.new_title") %></h1></div>
+
+<% if @project_templates.any? %>
+  <div class="card" style="max-width:720px;margin-bottom:20px">
+    <div class="card-head"><h2><%= t("marketingos.campaign_form.from_template") %></h2><span class="sub"><%= t("marketingos.campaign_form.from_template_sub") %></span></div>
+    <div class="card-body" style="padding-top:12px">
+      <%= form_with url: create_from_template_campaigns_path, local: true do %>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="tpl-id"><%= t("marketingos.campaign_form.template") %></label>
+            <select id="tpl-id" name="template_id" required>
+              <% @project_templates.each do |pt| %>
+                <option value="<%= pt.id %>"><%= pt.name %> — <%= pt.description.to_s.truncate(60) %></option>
+              <% end %>
+            </select>
+          </div>
+          <div class="field">
+            <label for="tpl-client"><%= t("marketingos.campaign_form.client") %></label>
+            <select id="tpl-client" name="client_id" required>
+              <% @clients.each do |c| %><option value="<%= c.id %>"><%= c.name %></option><% end %>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field"><label for="tpl-name"><%= t("marketingos.campaign_form.name_optional") %></label><input type="text" id="tpl-name" name="name"></div>
+          <div class="field"><label for="tpl-start"><%= t("marketingos.campaign_form.start_date") %></label><input type="date" id="tpl-start" name="start_date"></div>
+        </div>
+        <button class="btn btn-secondary"><%= icon("layers", size: 15) %> <%= t("marketingos.campaign_form.create_from_template") %></button>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<div class="card" style="max-width:720px">
+  <div class="card-head"><h2><%= t("marketingos.campaign_form.manual") %></h2><span class="sub"><%= t("marketingos.campaign_form.manual_sub") %></span></div>
+  <div class="card-body" style="padding-top:16px">
+    <%= form_with model: @campaign, local: true do |f| %>
+      <% if @campaign.errors.any? %>
+        <div class="flash flash-alert" role="alert"><%= @campaign.errors.full_messages.to_sentence %></div>
+      <% end %>
+      <div class="field">
+        <%= f.label :client_id, t("marketingos.campaign_form.client_brand") %>
+        <%= f.collection_select :client_id, @clients, :id, :name, { prompt: t("marketingos.campaign_form.select_client") }, required: true %>
+        <% if @clients.empty? %>
+          <p style="font-size:12.5px;color:#A16207;margin-top:6px">
+            <%= t("marketingos.campaign_form.no_client_html",
+                  link: link_to(t("marketingos.campaign_form.add_client_here"), clients_path)).html_safe %>
+          </p>
+        <% end %>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :name, t("marketingos.campaign_form.name") %><%= f.text_field :name, required: true %></div>
+        <div class="field"><%= f.label :budget, t("marketingos.campaign_form.budget") %><%= f.number_field :budget, step: "0.01", min: "0" %></div>
+      </div>
+      <div class="field"><%= f.label :objective, t("marketingos.campaign_form.objective") %><%= f.text_area :objective, rows: 2 %></div>
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :audience, t("marketingos.campaign_form.audience") %><%= f.text_area :audience, rows: 2 %></div>
+        <div class="field"><%= f.label :channels, t("marketingos.campaign_form.channels") %><%= f.text_field :channels, placeholder: "Facebook, TikTok, Email" %></div>
+      </div>
+
+      <h3 style="font-size:15px;margin:18px 0 10px"><%= t("marketingos.campaign_form.brief_section") %></h3>
+      <% Campaign::BRIEF_SECTIONS.each do |section| %>
+        <div class="field">
+          <label for="campaign_brief_data_<%= section %>">
+            <%= t("marketingos.campaign_form.brief_fields.#{section}", default: section.humanize) %>
+          </label>
+          <input type="text" id="campaign_brief_data_<%= section %>" name="campaign[brief_data][<%= section %>]"
+                 value="<%= @campaign.brief_data&.dig(section) %>">
+        </div>
+      <% end %>
+
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :start_date, t("marketingos.campaign_form.starts") %><%= f.date_field :start_date %></div>
+        <div class="field"><%= f.label :end_date, t("marketingos.campaign_form.ends") %><%= f.date_field :end_date %></div>
+      </div>
+      <button class="btn btn-primary"><%= t("marketingos.campaign_form.create") %></button>
+    <% end %>
+  </div>
+</div>

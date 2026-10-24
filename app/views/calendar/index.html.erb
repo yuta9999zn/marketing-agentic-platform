@@ -1,0 +1,90 @@
+<%
+  first_day = @month.beginning_of_month
+  last_day = @month.end_of_month
+  # Lưới bắt đầu từ Thứ 2 của tuần chứa ngày 1.
+  grid_start = first_day.beginning_of_week(:monday)
+  grid_end = last_day.end_of_week(:monday)
+  today = Date.current
+%>
+
+<div class="page-head">
+  <div>
+    <h1><%= t("marketingos.calendar.title") %></h1>
+    <div class="sub"><%= t("marketingos.calendar.subtitle", zone: Time.zone.name) %></div>
+  </div>
+  <span class="spacer"></span>
+  <div style="display:flex;gap:6px;align-items:center">
+    <%= link_to "‹", calendar_path(month: (@month - 1.month).strftime("%Y-%m")), class: "btn btn-secondary btn-sm",
+                "aria-label": t("marketingos.calendar.prev_month") %>
+    <span style="font-weight:600;min-width:130px;text-align:center"><%= l(@month, format: "%m/%Y") %></span>
+    <%= link_to "›", calendar_path(month: (@month + 1.month).strftime("%Y-%m")), class: "btn btn-secondary btn-sm",
+                "aria-label": t("marketingos.calendar.next_month") %>
+    <%= link_to t("marketingos.calendar.today"), calendar_path, class: "btn btn-ghost btn-sm" %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:14px">
+    <div class="cal-legend">
+      <span><i class="dot-event"></i> <%= t("marketingos.calendar.legend_event") %></span>
+      <span><i class="dot-task"></i> <%= t("marketingos.calendar.legend_task") %></span>
+      <span><i class="dot-content"></i> <%= t("marketingos.calendar.legend_content") %></span>
+      <span><i class="dot-overdue"></i> <%= t("marketingos.calendar.legend_overdue") %></span>
+    </div>
+
+    <div class="cal-grid-wrap">
+      <div class="cal-grid">
+        <% %w[mon tue wed thu fri sat sun].each do |d| %>
+          <div class="cal-dow"><%= t("marketingos.calendar.dow.#{d}") %></div>
+        <% end %>
+
+        <% (grid_start..grid_end).each do |date| %>
+          <%
+            entries = @entries_by_date[date]
+            classes = ["cal-cell"]
+            classes << "cal-out" if date.month != @month.month
+            classes << "cal-today" if date == today
+          %>
+          <div class="<%= classes.join(' ') %>">
+            <div class="cal-daynum"><%= date.day %></div>
+            <% entries.first(4).each do |e| %>
+              <%= link_to e[:url], class: "cal-entry cal-#{e[:type]}",
+                          title: "#{e[:title]} · #{e[:campaign].name}#{" · #{e[:meta]}" if e[:meta].present?}" do %>
+                <% if e[:time] %><b><%= e[:time] %></b> <% end %><%= truncate(e[:title], length: 26) %>
+              <% end %>
+            <% end %>
+            <% if entries.size > 4 %>
+              <div class="cal-more"><%= t("marketingos.calendar.more", count: entries.size - 4) %></div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2><%= t("marketingos.calendar.upcoming") %></h2></div>
+  <div class="card-body">
+    <% if @upcoming.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.calendar.no_upcoming"), icon_name: "calendar" %>
+    <% else %>
+      <% @upcoming.each do |e| %>
+        <div class="task-row">
+          <div class="meet-date">
+            <div class="d"><%= e.starts_at.in_time_zone.strftime("%d") %></div>
+            <div class="m"><%= e.starts_at.in_time_zone.strftime("%b") %></div>
+          </div>
+          <div class="task-main">
+            <div class="task-title"><%= link_to e.title, campaign_path(e.campaign) %></div>
+            <div class="task-sub">
+              <%= fmt_datetime(e.starts_at) %> – <%= e.ends_at.in_time_zone.strftime("%H:%M") %>
+              · <%= e.campaign.name %><% if e.location.present? %> · <%= e.location %><% end %>
+            </div>
+          </div>
+          <div class="task-right"><%= link_to ".ics", ics_event_path(e), class: "btn btn-secondary btn-sm" %></div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,20 @@
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><span class="avatar avatar-lg avatar-navy" style="background:linear-gradient(135deg,#4F46E5,#0FAD9A);border-radius:10px">M</span> MarketingOS</div>
+    <h1><%= t("marketingos.auth.invite_title", org: @invitation.organization.name) %></h1>
+    <p style="font-size:13.5px;color:var(--muted);margin:-12px 0 18px">
+      <%= t("marketingos.auth.invite_role") %> <span class="pill"><%= @invitation.role %></span>
+    </p>
+    <%= form_with url: accept_invite_path(token: @invitation.token), local: true do %>
+      <div class="field">
+        <label for="inv-name"><%= t("marketingos.auth.your_name") %></label>
+        <input type="text" id="inv-name" name="name">
+      </div>
+      <div class="field">
+        <label for="inv-pass"><%= t("marketingos.auth.set_password") %></label>
+        <input type="password" id="inv-pass" name="password" required minlength="8">
+      </div>
+      <button class="btn btn-primary"><%= t("marketingos.auth.join_workspace") %></button>
+    <% end %>
+  </div>
+</div>

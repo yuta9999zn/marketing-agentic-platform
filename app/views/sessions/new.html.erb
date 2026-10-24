@@ -1,0 +1,19 @@
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><span class="avatar avatar-lg avatar-navy" style="background:linear-gradient(135deg,#4F46E5,#0FAD9A);border-radius:10px">M</span> MarketingOS</div>
+    <h1><%= t("marketingos.auth.login_title") %></h1>
+    <%= form_with url: login_path, local: true do %>
+      <div class="field">
+        <label for="login-email"><%= t("marketingos.auth.email") %></label>
+        <input type="email" id="login-email" name="email" required autofocus>
+      </div>
+      <div class="field">
+        <label for="login-password"><%= t("marketingos.auth.password") %></label>
+        <input type="password" id="login-password" name="password" required>
+      </div>
+      <button class="btn btn-primary"><%= t("marketingos.auth.login") %></button>
+    <% end %>
+    <div class="alt"><%= t("marketingos.auth.no_account") %> <%= link_to t("marketingos.auth.create_workspace_link"), signup_path %></div>
+    <div class="demo"><%= t("marketingos.auth.demo_html").html_safe %></div>
+  </div>
+</div>

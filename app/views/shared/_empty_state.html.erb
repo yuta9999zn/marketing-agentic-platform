@@ -1,0 +1,5 @@
+<div class="empty">
+  <%= icon(local_assigns[:icon_name] || "doc") %>
+  <div><%= message %></div>
+  <% if local_assigns[:hint] %><div style="font-size:12px;margin-top:4px"><%= local_assigns[:hint] %></div><% end %>
+</div>

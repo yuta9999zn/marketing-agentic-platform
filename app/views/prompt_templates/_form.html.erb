@@ -1,0 +1,50 @@
+<div class="card" style="max-width:760px">
+  <div class="card-body" style="padding-top:16px">
+    <%= form_with model: @prompt_template, local: true do |f| %>
+      <% if @prompt_template.errors.any? %>
+        <div class="flash flash-alert" role="alert"><%= @prompt_template.errors.full_messages.to_sentence %></div>
+      <% end %>
+
+      <div class="form-grid-2">
+        <div class="field">
+          <%= f.label :name, t("marketingos.prompt_templates.name") %>
+          <%= f.text_field :name, required: true, placeholder: t("marketingos.prompt_templates.name_placeholder") %>
+        </div>
+        <div class="field">
+          <%= f.label :category, t("marketingos.prompt_templates.category") %>
+          <%= f.select :category,
+                PromptTemplate::CATEGORIES.map { |c| [t("marketingos.prompt_templates.categories.#{c}", default: c.humanize), c] },
+                { selected: @prompt_template.category } %>
+        </div>
+      </div>
+
+      <div class="field">
+        <%= f.label :instructions, t("marketingos.prompt_templates.instructions") %>
+        <%= f.text_area :instructions, rows: 10, placeholder: t("marketingos.prompt_templates.instructions_placeholder") %>
+        <div class="task-sub" style="margin-top:4px"><%= t("marketingos.prompt_templates.instructions_hint") %></div>
+      </div>
+
+      <div class="field">
+        <%= f.label :output_format, t("marketingos.prompt_templates.output_format") %>
+        <%= f.text_area :output_format, rows: 4, placeholder: t("marketingos.prompt_templates.output_format_placeholder") %>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="field">
+          <%= f.label :locale, t("marketingos.prompt_templates.locale") %>
+          <%= f.select :locale, User::LOCALES.map { |l| [t("marketingos.settings.locales.#{l}"), l] },
+                { selected: @prompt_template.locale } %>
+        </div>
+        <div class="field" style="display:flex;align-items:end;gap:8px">
+          <%= f.check_box :shared %>
+          <%= f.label :shared, t("marketingos.prompt_templates.shared"), style: "margin:0" %>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary btn-sm"><%= t("marketingos.common.save") %></button>
+        <%= link_to t("marketingos.common.cancel"), templates_path, class: "btn btn-secondary btn-sm" %>
+      </div>
+    <% end %>
+  </div>
+</div>

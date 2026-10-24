@@ -1,0 +1,8 @@
+<div class="page-head">
+  <div>
+    <h1><%= @prompt_template.name %></h1>
+    <div class="sub"><%= t("marketingos.prompt_templates.version_note", version: @prompt_template.version) %></div>
+  </div>
+</div>
+
+<%= render "form" %>

@@ -1,0 +1,105 @@
+<div class="page-head">
+  <div><h1><%= t("marketingos.members.title") %></h1><div class="sub"><%= t("marketingos.members.subtitle") %></div></div>
+</div>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.members.members") %></h2><span class="sub"><%= @memberships.size %></span></div>
+      <div class="card-body tight">
+        <% @memberships.each do |m| %>
+          <div class="task-row">
+            <%= avatar(m.user.name) %>
+            <div class="task-main">
+              <div class="task-title"><%= m.user.name %></div>
+              <div class="task-sub"><%= m.user.email %></div>
+            </div>
+            <div class="task-right">
+              <%= form_with url: update_role_member_path(m), method: :patch do %>
+                <%= select_tag "membership[role]", options_for_select(Organization::ROLES, m.role),
+                      "aria-label": t("marketingos.members.role_of", name: m.user.name) %>
+                <button class="btn btn-ghost btn-sm"><%= t("marketingos.common.save") %></button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.members.invitations") %></h2><span class="sub"><%= t("marketingos.members.invitations_sub") %></span></div>
+      <div class="card-body tight">
+        <% if @invitations.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.members.no_invitations"), icon_name: "users" %>
+        <% else %>
+          <% @invitations.each do |i| %>
+            <div class="task-row">
+              <span class="thumb"><%= icon("users", size: 16) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= i.email %></div>
+                <div class="task-sub"><%= i.role %> · <%= t("marketingos.members.expires_on", date: fmt_date(i.expires_at.to_date)) %></div>
+              </div>
+              <div class="task-right">
+                <%
+                  state = if i.accepted? then ["pill-teal", t("marketingos.members.state_accepted")]
+                          elsif i.revoked? then ["pill-gray", t("marketingos.members.state_revoked")]
+                          elsif i.expired? then ["pill-gray", t("marketingos.members.state_expired")]
+                          else ["pill-amber", t("marketingos.members.state_pending")]
+                          end
+                %>
+                <span class="pill <%= state[0] %>"><span class="pdot"></span><%= state[1] %></span>
+                <% if i.usable? %>
+                  <%= button_to t("marketingos.members.revoke"), revoke_member_path(i), method: :post,
+                        class: "btn btn-ghost btn-sm", form: { style: "display:inline" } %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-right">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.members.ai_title") %></h2><span class="sub"><%= t("marketingos.members.ai_sub") %></span></div>
+      <div class="card-body">
+        <div class="kv">
+          <span class="k"><%= t("marketingos.members.ai_status") %></span>
+          <span class="v">
+            <% if current_organization.ai_external_enabled? %>
+              <span class="pill pill-teal"><span class="pdot"></span><%= t("marketingos.members.ai_on") %></span>
+            <% else %>
+              <span class="pill pill-gray"><span class="pdot"></span><%= t("marketingos.members.ai_off") %></span>
+            <% end %>
+          </span>
+        </div>
+        <%= form_with url: update_workspace_ai_path, method: :patch, local: true do %>
+          <div class="field" style="margin-top:10px">
+            <label style="display:flex;gap:8px;align-items:flex-start;font-weight:500">
+              <input type="checkbox" name="ai_external_enabled" value="true" style="width:auto;margin-top:3px"
+                     <%= "checked" if current_organization.ai_external_enabled? %>>
+              <span><%= t("marketingos.members.ai_toggle") %></span>
+            </label>
+          </div>
+          <button class="btn btn-secondary btn-sm"><%= t("marketingos.members.ai_save") %></button>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 0"><%= t("marketingos.members.ai_note") %></p>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.members.invite_title") %></h2></div>
+      <div class="card-body">
+        <%= form_with model: @invitation, url: invite_members_path, local: true do |f| %>
+          <div class="field"><%= f.label :email, t("marketingos.members.email") %><%= f.email_field :email, required: true %></div>
+          <div class="field"><%= f.label :role, t("marketingos.members.role") %><%= f.select :role, Organization::ROLES, {}, selected: "copywriter" %></div>
+          <button class="btn btn-primary btn-sm"><%= t("marketingos.members.create_invite") %></button>
+          <p style="font-size:12px;color:var(--muted);margin-top:10px">
+            <%= t("marketingos.members.invite_note") %>
+          </p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

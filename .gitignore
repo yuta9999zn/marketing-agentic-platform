@@ -1,0 +1,27 @@
+# See https://help.github.com/articles/ignoring-files for more about ignoring files.
+#
+# If you find yourself ignoring files in your local repository, you may want to
+# consider adding a remote to your local Git settings. For more information,
+# see https://git-scm.com/docs/gitignore.
+
+# Secrets — không bao giờ commit
+.env
+.env.*
+!.env.example
+config/master.key
+
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+/storage/*
+!/storage/.keep
+/db/*.sqlite3
+/db/*.sqlite3-*
+coverage/
+tmp/cache
+vendor/javascript
+node_modules/
+
+# Local agent flight logs
+.kiai/

@@ -1,0 +1,136 @@
+<%
+  campaign = @survey.campaign
+  can_edit = policy_for.allowed?(:edit, subject: campaign)
+  questions = @survey.question_list
+%>
+
+<div class="breadcrumb">
+  <%= link_to t("marketingos.nav.campaigns"), campaigns_path %> <%= icon("chev-r", size: 12) %>
+  <%= link_to campaign.name, campaign_path(campaign) %> <%= icon("chev-r", size: 12) %>
+  <span><%= @survey.title %></span>
+</div>
+
+<div class="page-head">
+  <div>
+    <h1><%= @survey.title %></h1>
+    <div class="sub">
+      <%= render "shared/status_pill", status: { "draft" => "draft", "open" => "in_progress", "closed" => "done" }[@survey.status] %>
+      <%= t("marketingos.survey.response_count", count: @survey.response_count) %>
+      <% if @survey.description.present? %> · <%= truncate(@survey.description, length: 80) %><% end %>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <% if can_edit %>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <%= form_with url: survey_path(@survey), method: :patch, local: true, style: "display:flex;gap:6px" do %>
+        <select name="status" aria-label="<%= t('marketingos.survey.status') %>" style="width:auto">
+          <% Survey::STATUSES.each do |s| %>
+            <option value="<%= s %>" <%= "selected" if @survey.status == s %>><%= t("marketingos.survey.statuses.#{s}") %></option>
+          <% end %>
+        </select>
+        <button class="btn btn-secondary btn-sm"><%= t("marketingos.common.save") %></button>
+      <% end %>
+      <%= button_to analyse_survey_path(@survey), method: :post, class: "btn btn-primary btn-sm",
+            form: { style: "display:inline" },
+            disabled: @survey.response_count.zero? do %>
+        <%= icon("spark", size: 14) %> <%= t("marketingos.survey.analyse") %>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.survey.answer_title") %></h2>
+        <span class="sub"><%= t("marketingos.survey.statuses.#{@survey.status}") %></span>
+      </div>
+      <div class="card-body">
+        <% if questions.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.survey.no_questions"), icon_name: "doc" %>
+        <% elsif !@survey.open? %>
+          <%= render "shared/empty_state", message: t("marketingos.survey.not_open"),
+                hint: can_edit ? t("marketingos.survey.not_open_hint") : nil, icon_name: "clock" %>
+        <% else %>
+          <%= form_with url: survey_survey_responses_path(@survey), local: true do %>
+            <div class="field">
+              <label for="resp-label"><%= t("marketingos.survey.respondent") %></label>
+              <input type="text" id="resp-label" name="respondent_label" value="<%= current_user.name %>">
+            </div>
+            <% questions.each do |q| %>
+              <div class="field">
+                <label for="q-<%= q["key"] %>"><%= q["label"] %></label>
+                <textarea id="q-<%= q["key"] %>" name="answers[<%= q["key"] %>]" rows="2"></textarea>
+              </div>
+            <% end %>
+            <button class="btn btn-primary btn-sm"><%= t("marketingos.survey.submit") %></button>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.survey.responses") %></h2>
+        <span class="sub"><%= t("marketingos.survey.response_count", count: @responses.size) %></span>
+      </div>
+      <div class="card-body tight">
+        <% if @responses.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.survey.no_responses"), icon_name: "users" %>
+        <% else %>
+          <% @responses.each do |r| %>
+            <div class="task-row" style="align-items:flex-start"
+                 data-controller="quick-translate"
+                 data-quick-translate-campaign-id-value="<%= campaign.id %>"
+                 data-quick-translate-target-value="<%= I18n.locale == :en ? 'en' : 'vi' %>"
+                 data-quick-translate-loading-value="<%= t('marketingos.quick_translate.loading') %>">
+              <%= avatar(r.respondent_label.presence || "?") %>
+              <div class="task-main">
+                <div class="task-sub" style="margin:0 0 4px">
+                  <b style="color:var(--ink)"><%= r.respondent_label.presence || t("marketingos.survey.anonymous") %></b>
+                  · <%= fmt_datetime(r.created_at) %>
+                </div>
+                <div data-quick-translate-target="source">
+                  <% questions.each do |q| %>
+                    <% value = r.answers[q["key"]] %>
+                    <% next if value.blank? %>
+                    <div style="font-size:13.5px;margin-bottom:3px">
+                      <span style="color:var(--muted)"><%= q["label"] %>:</span> <%= value %>
+                    </div>
+                  <% end %>
+                </div>
+                <div class="qt-output" data-quick-translate-target="output" hidden></div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm qt-btn"
+                      data-quick-translate-target="button"
+                      data-action="quick-translate#translate"><%= t("marketingos.quick_translate.button") %></button>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-right">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.survey.questions") %></h2></div>
+      <div class="card-body tight">
+        <% if questions.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.survey.no_questions"), icon_name: "doc" %>
+        <% else %>
+          <% questions.each_with_index do |q, i| %>
+            <div class="kv"><span class="k"><%= i + 1 %>. <%= q["label"] %></span></div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.survey.ai_title") %></h2><span class="spacer"></span><%= ai_status_badge %></div>
+      <div class="card-body">
+        <p class="task-sub" style="margin:0"><%= t("marketingos.survey.ai_note") %></p>
+      </div>
+    </div>
+  </div>
+</div>

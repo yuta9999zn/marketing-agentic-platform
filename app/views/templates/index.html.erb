@@ -1,0 +1,100 @@
+<div class="page-head">
+  <div><h1><%= t("marketingos.templates.title") %></h1><div class="sub"><%= t("marketingos.templates.subtitle") %></div></div>
+  <div><%= link_to t("marketingos.prompt_templates.new"), new_prompt_template_path, class: "btn btn-primary btn-sm" %></div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2><%= t("marketingos.templates.project_section") %></h2></div>
+  <div class="card-body">
+    <% if @project_templates.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.templates.project_empty"), icon_name: "layers" %>
+    <% else %>
+      <% @project_templates.each do |pt| %>
+        <div class="task-row">
+          <span class="thumb"><%= icon("layers", size: 18) %></span>
+          <div class="task-main">
+            <div class="task-title"><%= pt.name %></div>
+            <div class="task-sub">
+              <%= pt.description %>
+              · <%= t("marketingos.templates.milestones_count", count: Array(pt.config["milestones"]).size) %>
+              · <%= t("marketingos.templates.tasks_count", count: Array(pt.config["tasks"]).size) %>
+              <% if Array(pt.config["artifacts"]).any? %>
+                · <%= t("marketingos.templates.artifacts_count", count: Array(pt.config["artifacts"]).size) %>
+              <% end %>
+            </div>
+          </div>
+          <% if policy_for.allowed?(:manage) %>
+            <details class="inline-details">
+              <summary class="btn btn-secondary btn-sm"><%= t("marketingos.templates.use") %></summary>
+              <%= form_with url: create_from_template_campaigns_path, method: :post, local: true do %>
+                <input type="hidden" name="template_id" value="<%= pt.id %>">
+                <div class="field">
+                  <label><%= t("marketingos.templates.client") %></label>
+                  <select name="client_id" required>
+                    <% @clients.each do |c| %><option value="<%= c.id %>"><%= c.name %></option><% end %>
+                  </select>
+                </div>
+                <div class="field"><label><%= t("marketingos.templates.campaign_name") %></label>
+                  <input type="text" name="name" placeholder="<%= pt.name %>"></div>
+                <div class="field"><label><%= t("marketingos.templates.start_date") %></label>
+                  <input type="date" name="start_date"></div>
+                <button class="btn btn-primary btn-sm"><%= t("marketingos.templates.create_campaign") %></button>
+              <% end %>
+            </details>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2><%= t("marketingos.templates.prompt_section") %></h2></div>
+  <div class="card-body">
+    <% if @prompt_templates.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.templates.prompt_empty"),
+                 hint: t("marketingos.templates.prompt_hint"), icon_name: "pen" %>
+    <% else %>
+      <% @prompt_templates.group_by(&:category).each do |category, list| %>
+        <div class="nav-group-label" style="margin:8px 0 4px"><%= t("marketingos.prompt_templates.categories.#{category}", default: category.humanize) %></div>
+        <% list.each do |pt| %>
+          <div class="task-row">
+            <span class="thumb"><%= icon("pen", size: 18) %></span>
+            <div class="task-main">
+              <div class="task-title"><%= pt.name %> <span class="task-sub">v<%= pt.version %> · <%= pt.locale&.upcase %></span></div>
+              <div class="task-sub"><%= truncate(pt.instructions.to_s, length: 110) %></div>
+            </div>
+            <div class="task-right" style="display:flex;gap:6px">
+              <%= link_to t("marketingos.common.edit"), edit_prompt_template_path(pt), class: "btn btn-secondary btn-sm" %>
+              <% if policy_for.allowed?(:manage) %>
+                <%= button_to t("marketingos.common.delete"), prompt_template_path(pt), method: :delete,
+                      class: "btn btn-secondary btn-sm",
+                      form: { data: { turbo_confirm: t("marketingos.prompt_templates.confirm_delete") } } %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2><%= t("marketingos.templates.artifact_section") %></h2></div>
+  <div class="card-body">
+    <% if @artifact_templates.any? %>
+      <% @artifact_templates.each do |t_art| %>
+        <div class="task-row">
+          <span class="thumb"><%= icon("doc", size: 18) %></span>
+          <div class="task-main">
+            <div class="task-title"><%= link_to t_art.title, artifact_path(t_art) %></div>
+            <div class="task-sub"><%= kind_label(t_art.kind) %> · <%= t_art.campaign.name %> · v<%= t_art.version %></div>
+          </div>
+          <%= render "shared/status_pill", status: t_art.approval_status %>
+        </div>
+      <% end %>
+    <% else %>
+      <%= render "shared/empty_state", message: t("marketingos.templates.artifact_empty"), icon_name: "doc" %>
+    <% end %>
+  </div>
+</div>

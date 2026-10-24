@@ -1,0 +1,27 @@
+<div class="page-head">
+  <div>
+    <h1><%= t("marketingos.nav.content_studio") %></h1>
+    <div class="sub"><%= t("marketingos.studio.summary", count: @artifacts.count, pending: @pending_count) %></div>
+  </div>
+  <span class="spacer"></span>
+</div>
+
+<div class="card">
+  <div class="card-body tight">
+    <% if @artifacts.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.studio.empty"),
+            hint: t("marketingos.studio.empty_hint"), icon_name: "pen" %>
+    <% else %>
+      <% @artifacts.each do |a| %>
+        <div class="approval-card">
+          <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
+          <div class="approval-main">
+            <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
+            <div class="approval-sub"><%= link_to a.campaign.name, campaign_path(a.campaign) %> · v<%= a.version %> · <%= fmt_datetime(a.updated_at) %><% if a.ai_generated? %> · AI<% end %></div>
+            <div class="approval-foot"><%= render "shared/status_pill", status: a.approval_status %></div>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

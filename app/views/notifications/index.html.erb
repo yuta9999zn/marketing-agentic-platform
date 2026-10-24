@@ -1,0 +1,27 @@
+<div class="page-head">
+  <div><h1><%= t("marketingos.nav.notifications") %></h1></div>
+  <span class="spacer"></span>
+  <%= button_to t("marketingos.notifications.mark_read"), mark_read_notifications_path, method: :post,
+        class: "btn btn-secondary btn-sm", form: { style: "display:inline" } %>
+</div>
+
+<div class="card">
+  <div class="card-body tight">
+    <% if @notifications.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.notifications.empty"), icon_name: "bell" %>
+    <% else %>
+      <% @notifications.each do |n| %>
+        <div class="task-row">
+          <span class="thumb"><%= icon("bell", size: 16) %></span>
+          <div class="task-main">
+            <div class="task-title" style="<%= 'color:var(--muted);font-weight:500' if n.read_at? %>">
+              <%= t("marketingos.notification_kinds.#{n.kind}", default: n.kind.humanize) %>
+            </div>
+            <div class="task-sub"><%= n.payload.values.join(" · ") %></div>
+          </div>
+          <span class="due"><%= fmt_datetime(n.created_at) %></span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

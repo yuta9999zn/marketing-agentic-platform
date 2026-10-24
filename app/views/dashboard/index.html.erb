@@ -1,0 +1,158 @@
+<%
+  can_manage = policy_for.allowed?(:manage)
+%>
+
+<div class="page-head">
+  <div>
+    <h1><%= t("marketingos.dashboard.greeting", name: current_user.name.split(" ").first) %></h1>
+    <div class="sub">
+      <%= t("marketingos.dashboard.summary", campaigns: @campaigns_count, tasks: @tasks_open_count,
+            approvals: @pending_approvals_count) %>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <% if can_manage %>
+    <%= link_to new_campaign_path, class: "btn btn-primary" do %><%= icon("plus", size: 16) %> <%= t("marketingos.dashboard.new_campaign") %><% end %>
+  <% end %>
+</div>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.dashboard.my_tasks") %></h2>
+        <span class="sub"><%= t("marketingos.dashboard.open_workspace", count: @tasks_open_count) %></span>
+        <span class="spacer"></span>
+      </div>
+      <div class="card-body tight">
+        <% if @my_tasks.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_tasks"), icon_name: "check" %>
+        <% else %>
+          <% @my_tasks.each do |t| %>
+            <div class="task-row">
+              <span class="task-check" aria-hidden="true"></span>
+              <div class="task-main">
+                <div class="task-title"><%= link_to t.title, campaign_path(t.campaign, anchor: "comments") %></div>
+                <div class="task-sub"><%= link_to t.campaign.name, campaign_path(t.campaign) %><% if t.blocked_reason.present? %><span class="blocked-tag"><%= icon("alert", size: 12) %> <%= t.blocked_reason %></span><% end %></div>
+              </div>
+              <div class="task-right">
+                <% if t.priority %><span class="prio prio-<%= t.priority %>"><%= t("marketingos.priority.#{t.priority}", default: t.priority.upcase) %></span><% end %>
+                <% if t.due_date %><span class="due <%= 'overdue' if t.overdue? %>"><%= fmt_date(t.due_date) %></span><% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.dashboard.awaiting_you") %></h2>
+        <span class="sub"><%= t("marketingos.dashboard.awaiting_sub") %></span>
+        <span class="spacer"></span>
+        <%= link_to t("marketingos.nav.content_studio"), content_studio_path, class: "btn btn-ghost btn-sm" if @is_internal %>
+      </div>
+      <div class="card-body tight">
+        <% if @my_approvals.empty? %>
+          <%= render "shared/empty_state",
+                message: policy_for.allowed?(:approve) ? t("marketingos.dashboard.no_approvals") : t("marketingos.dashboard.no_approval_role"),
+                icon_name: "check" %>
+        <% else %>
+          <% @my_approvals.each do |a| %>
+            <div class="approval-card">
+              <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
+              <div class="approval-main">
+                <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
+                <div class="approval-sub"><%= a.campaign.name %> · v<%= a.version %> · <%= fmt_datetime(a.updated_at) %></div>
+                <div class="approval-foot">
+                  <%= link_to t("marketingos.dashboard.open_to_review"), artifact_path(a), class: "btn btn-primary btn-sm" %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.dashboard.attention") %></h2><span class="sub"><%= t("marketingos.dashboard.attention_sub") %></span></div>
+      <div class="card-body tight">
+        <% if @attention_campaigns.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_attention"), icon_name: "check" %>
+        <% else %>
+          <% @attention_campaigns.each do |c| %>
+            <%
+              overdue = c.tasks.overdue.count
+              pending = c.artifacts.where(approval_status: "in_review").count
+            %>
+            <div class="task-row">
+              <span class="thumb"><%= initials(c.client.name) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= link_to c.name, campaign_path(c) %></div>
+                <div class="task-sub"><%= c.client.name %> · <%= t("marketingos.dashboard.percent_done", percent: c.progress_percent) %></div>
+              </div>
+              <div class="task-right">
+                <% if overdue.positive? %><span class="pill pill-rose"><%= icon("alert", size: 12) %> <%= t("marketingos.dashboard.overdue_count", count: overdue) %></span><% end %>
+                <% if pending.positive? %><span class="pill pill-amber"><%= t("marketingos.dashboard.pending_count", count: pending) %></span><% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-right">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.dashboard.this_week") %></h2><span class="spacer"></span><%= link_to t("marketingos.nav.calendar"), calendar_path, class: "btn btn-ghost btn-sm" %></div>
+      <div class="card-body">
+        <% if @week_events.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_events_week"), icon_name: "calendar" %>
+        <% else %>
+          <% @week_events.first(5).each do |e| %>
+            <div class="meet-when" style="margin-bottom:12px">
+              <div class="meet-date">
+                <div class="d"><%= e.starts_at.in_time_zone.strftime("%d") %></div>
+                <div class="m"><%= e.starts_at.in_time_zone.strftime("%b") %></div>
+              </div>
+              <div style="min-width:0">
+                <div style="font-weight:700;font-size:14px"><%= link_to e.title, campaign_path(e.campaign) %></div>
+                <div style="font-size:12.5px;color:var(--muted)"><%= fmt_datetime(e.starts_at) %> · <%= e.campaign.name %></div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.dashboard.recent_activity") %></h2></div>
+      <div class="card-body tight">
+        <% if @recent_activity.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_activity"), icon_name: "clock" %>
+        <% else %>
+          <% @recent_activity.each do |a| %>
+            <div class="kv">
+              <span class="k"><%= a.action %> <% if a.user %><b style="color:var(--ink)"><%= a.user.name %></b><% end %></span>
+              <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(a.created_at) %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <% if @notifications.any? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.dashboard.new_notifications") %></h2><span class="spacer"></span><%= link_to t("marketingos.common.view_all"), notifications_path, class: "btn btn-ghost btn-sm" %></div>
+        <div class="card-body tight">
+          <% @notifications.each do |n| %>
+            <div class="kv">
+              <span class="k"><%= t("marketingos.notification_kinds.#{n.kind}", default: n.kind.humanize) %></span>
+              <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(n.created_at) %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

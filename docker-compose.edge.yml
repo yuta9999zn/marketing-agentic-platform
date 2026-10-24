@@ -1,0 +1,26 @@
+# Override cho VPS đã có reverse proxy Caddy dùng chung qua network "edge".
+#
+# Dùng khi trên máy chủ đã có sẵn một Caddy/nginx chạy trong container và mọi app
+# đều gắn vào một network external tên `edge` để proxy gọi được bằng tên container.
+#
+# Chạy:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.edge.yml \
+#     --env-file .env.production --profile ai up -d --build
+#
+# Khối Caddy tương ứng (thêm vào Caddyfile dùng chung):
+#   ten-mien-cua-ban {
+#       reverse_proxy marketingos-app-1:80
+#   }
+#
+# Không có sẵn network `edge` thì tạo trước: docker network create edge
+# Hoặc bỏ file override này và truy cập app qua cổng đã publish (APP_PORT).
+
+services:
+  app:
+    networks:
+      - default   # để nói chuyện với ollama trong cùng stack
+      - edge      # để reverse proxy dùng chung gọi vào
+
+networks:
+  edge:
+    external: true

@@ -1,0 +1,144 @@
+<% content_for :title, @client.name %>
+
+<div class="breadcrumb">
+  <%= link_to t("marketingos.nav.clients"), clients_path %> <%= icon("chev-r", size: 12) %> <span><%= @client.name %></span>
+</div>
+
+<div class="card" style="padding:22px 24px">
+  <div class="camp-header">
+    <span class="avatar avatar-lg avatar-navy"><%= initials(@client.name) %></span>
+    <div class="titles">
+      <h1 class="camp-title"><%= @client.name %></h1>
+      <div class="camp-meta">
+        <b><%= @client.industry.presence || t("marketingos.clients.no_industry") %></b>
+        <span>·</span>
+        <span><%= t("marketingos.clients.campaign_count", count: @campaigns.size) %></span>
+        <% if @client.contact_name.present? %>
+          <span>·</span>
+          <span><%= icon("users", size: 14) %> <%= @client.contact_name %></span>
+        <% end %>
+        <% if @client.contact_email.present? %>
+          <span>·</span>
+          <span><%= mail_to @client.contact_email %></span>
+        <% end %>
+        <% if @client.contact_phone.present? %>
+          <span>·</span><span><%= @client.contact_phone %></span>
+        <% end %>
+      </div>
+    </div>
+    <div class="camp-actions">
+      <% if policy_for.allowed?(:manage) %>
+        <details class="inline-details">
+          <summary class="btn btn-secondary"><%= icon("pen", size: 16) %> <%= t("marketingos.common.edit") %></summary>
+          <%= form_with model: @client, url: client_path(@client), method: :patch, local: true do |f| %>
+            <div class="field"><%= f.label :name, t("marketingos.clients.name") %><%= f.text_field :name, required: true %></div>
+            <div class="field"><%= f.label :industry, t("marketingos.clients.industry") %><%= f.text_field :industry %></div>
+            <div class="field"><%= f.label :contact_name, t("marketingos.clients.contact_name") %><%= f.text_field :contact_name %></div>
+            <div class="field"><%= f.label :contact_email, t("marketingos.clients.contact_email") %><%= f.email_field :contact_email %></div>
+            <div class="field"><%= f.label :contact_phone, t("marketingos.clients.contact_phone") %><%= f.text_field :contact_phone %></div>
+            <div class="field"><%= f.label :notes, t("marketingos.clients.notes") %><%= f.text_area :notes, rows: 3 %></div>
+            <button class="btn btn-primary btn-sm"><%= t("marketingos.common.save") %></button>
+          <% end %>
+        </details>
+      <% end %>
+    </div>
+  </div>
+  <% if @client.notes.present? %>
+    <p class="task-sub" style="margin-top:14px"><%= @client.notes %></p>
+  <% end %>
+</div>
+
+<div class="ws-grid">
+  <div>
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.clients.campaigns") %></h2></div>
+      <div class="card-body tight">
+        <% if @campaigns.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.clients.no_campaigns"), icon_name: "folder" %>
+        <% else %>
+          <% @campaigns.each do |c| %>
+            <div class="task-row">
+              <span class="thumb"><%= icon("folder", size: 18) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= link_to c.name, campaign_path(c) %></div>
+                <div class="task-sub">
+                  <%= c.owner&.name || t("marketingos.clients.no_owner") %>
+                  · <%= fmt_date(c.start_date) %> → <%= fmt_date(c.end_date) %>
+                  · <%= c.progress_percent %>%
+                </div>
+              </div>
+              <%= render "shared/status_pill", status: c.status %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.clients.feedback") %></h2>
+        <span class="sub"><%= t("marketingos.clients.feedback_sub") %></span></div>
+      <div class="card-body tight">
+        <% if @comments.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.clients.no_feedback"), icon_name: "users" %>
+        <% else %>
+          <% @comments.each do |c| %>
+            <div class="task-row">
+              <%= avatar(c.user.name) %>
+              <div class="task-main">
+                <div class="task-title" style="font-size:14px">
+                  <%= c.user.name %>
+                  <% if c.artifact %>
+                    · <%= link_to truncate(c.artifact.title, length: 40), artifact_path(c.artifact), style: "font-weight:500" %>
+                  <% else %>
+                    · <%= link_to c.campaign.name, campaign_path(c.campaign), style: "font-weight:500" %>
+                  <% end %>
+                </div>
+                <div class="task-sub">“<%= truncate(c.body, length: 130) %>”</div>
+              </div>
+              <span class="due"><%= fmt_datetime(c.created_at) %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.clients.decisions") %></h2></div>
+      <div class="card-body tight">
+        <% if @decisions.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.clients.no_decisions"), icon_name: "check" %>
+        <% else %>
+          <% @decisions.each do |d| %>
+            <div class="task-row">
+              <div class="task-main">
+                <div class="task-title" style="font-size:14px">
+                  <%= link_to truncate(d.approval_round.artifact.title, length: 34), artifact_path(d.approval_round.artifact) %>
+                </div>
+                <div class="task-sub"><%= d.user.name %> · v<%= d.approval_round.artifact_version %> · <%= fmt_datetime(d.created_at) %></div>
+              </div>
+              <%= render "shared/status_pill", status: d.decision %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.clients.events") %></h2></div>
+      <div class="card-body tight">
+        <% if @events.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.clients.no_events"), icon_name: "calendar" %>
+        <% else %>
+          <% @events.each do |e| %>
+            <div class="kv">
+              <span class="k"><%= e.title %></span>
+              <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(e.starts_at) %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

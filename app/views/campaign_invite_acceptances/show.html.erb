@@ -1,0 +1,20 @@
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><span class="avatar avatar-lg avatar-navy" style="background:linear-gradient(135deg,#4F46E5,#0FAD9A);border-radius:10px">M</span> MarketingOS</div>
+    <h1><%= t("marketingos.auth.campaign_invite_title", campaign: @token.campaign.name) %></h1>
+    <p style="font-size:13.5px;color:var(--muted);margin:-12px 0 18px">
+      <%= t("marketingos.auth.campaign_invite_note", org: @token.campaign.organization.name) %>
+    </p>
+    <%= form_with url: accept_campaign_invite_path(token: @token.token), local: true do %>
+      <div class="field">
+        <label for="ci-name"><%= t("marketingos.auth.your_name") %></label>
+        <input type="text" id="ci-name" name="name">
+      </div>
+      <div class="field">
+        <label for="ci-pass"><%= t("marketingos.auth.set_password_optional") %></label>
+        <input type="password" id="ci-pass" name="password" minlength="8">
+      </div>
+      <button class="btn btn-primary"><%= t("marketingos.auth.join_as_reviewer") %></button>
+    <% end %>
+  </div>
+</div>

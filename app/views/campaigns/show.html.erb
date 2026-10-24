@@ -1,0 +1,663 @@
+<%
+  stage = params[:stage].presence
+  tasks = @tasks
+  open_tasks = tasks.reject(&:done?)
+  priority_tasks = tasks.sort_by { |t| [t.done? ? 1 : 0, (t.due_date || Date.new(9999, 1, 1)), Task::PRIORITIES.index(t.priority || "medium") || 1] }
+  pending_artifacts = @artifacts.select { |a| a.approval_status == "in_review" }
+  recent_feedback = @campaign.comments.where.not(artifact_id: nil).order(created_at: :desc).limit(4)
+  upcoming_event = @events.detect { |e| e.starts_at >= Time.current }
+  nba = Ai::NextBestAction.for(@campaign)
+  can_edit = policy_for.allowed?(:edit, subject: @campaign)
+  can_manage = policy_for.allowed?(:manage, subject: @campaign)
+  can_approve = policy_for.allowed?(:approve, subject: @campaign)
+  stage_filter = %w[brief strategy content].include?(stage) ? { "brief" => "brief", "strategy" => "persona", "content" => "content_plan" }[stage] : nil
+  shown_artifacts = stage_filter ? @artifacts.select { |a| a.kind == stage_filter } : @artifacts
+  overdue_count = @campaign.tasks.overdue.count
+%>
+
+<% content_for :title, @campaign.name %>
+
+<div class="breadcrumb">
+  <%= link_to t("marketingos.nav.campaigns"), campaigns_path %> <%= icon("chev-r", size: 12) %> <span><%= @campaign.name %></span>
+</div>
+
+<%# ── Campaign header ──────────────────────────────────────── %>
+<div class="card" style="padding:22px 24px">
+  <div class="camp-header">
+    <span class="avatar avatar-lg avatar-navy"><%= initials(@campaign.client.name) %></span>
+    <div class="titles">
+      <h1 class="camp-title"><%= @campaign.name %></h1>
+      <div class="camp-meta">
+        <b><%= @campaign.client.name %></b>
+        <span>·</span>
+        <span><%= icon("users", size: 14) %> <%= @campaign.owner&.name || t("marketingos.campaign.no_owner") %></span>
+        <span>·</span>
+        <span><%= fmt_date(@campaign.start_date) %> → <%= fmt_date(@campaign.end_date) %></span>
+        <%= render "shared/status_pill", status: @campaign.status %>
+        <% if @campaign.artifacts.where(ai_generated: true).exists? %>
+          <span class="pill pill-violet"><%= icon("spark", size: 12) %> AI assisted</span>
+        <% end %>
+      </div>
+    </div>
+    <div class="camp-actions">
+      <% if can_manage %>
+        <button class="btn btn-primary" onclick="document.getElementById('dlg-invite').showModal()">
+          <%= icon("users", size: 16) %> <%= t("marketingos.campaign.invite_reviewer") %>
+        </button>
+      <% end %>
+      <% if can_edit %>
+        <%= link_to "#stage-content", class: "btn btn-secondary", onclick: "document.querySelector('##{"stage-content"}').scrollIntoView({behavior:'smooth'});return false" do %>
+          <%= icon("pen", size: 16) %> <%= t("marketingos.campaign.create_content") %>
+        <% end %>
+      <% end %>
+<% if can_manage %>
+        <%= form_with url: set_lifecycle_campaign_path(@campaign), method: :post, local: true, style: "display:flex;gap:6px;align-items:center" do %>
+          <select name="stage" aria-label="<%= t('marketingos.campaign.change_stage') %>" style="width:auto">
+            <% Campaign::LIFECYCLE_STEPS.each do |st| %>
+              <option value="<%= st[:key] %>" <%= "selected" if @campaign.lifecycle_stage == st[:key] %>><%= st[:label] %></option>
+            <% end %>
+          </select>
+          <button class="btn btn-ghost btn-sm"><%= t("marketingos.campaign.change_stage") %></button>
+        <% end %>
+        <%= link_to t("marketingos.common.edit"), edit_campaign_path(@campaign), class: "btn btn-ghost" %>
+        <details class="inline-details">
+          <summary class="btn btn-ghost"><%= icon("layers", size: 16) %> <%= t("marketingos.templates.save_as") %></summary>
+          <%= form_with url: save_as_template_campaign_path(@campaign), method: :post, local: true do %>
+            <div class="field">
+              <label><%= t("marketingos.templates.template_name") %></label>
+              <input type="text" name="name" value="<%= @campaign.name %> (template)" required>
+            </div>
+            <div class="field">
+              <label><%= t("marketingos.templates.description") %></label>
+              <input type="text" name="description" placeholder="<%= truncate(@campaign.objective.to_s, length: 60) %>">
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+              <input type="checkbox" name="include_artifacts" value="1" checked>
+              <span class="task-sub"><%= t("marketingos.templates.include_artifacts") %></span>
+            </label>
+            <button class="btn btn-primary btn-sm"><%= t("marketingos.templates.save_as") %></button>
+          <% end %>
+        </details>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-row">
+      <span class="progress-pct"><%= t("marketingos.dashboard.percent_done", percent: @campaign.progress_percent) %></span>
+      <span class="progress-label">
+        <%= t("marketingos.campaign.tasks_done", done: @campaign.tasks.where(status: "done").count,
+              total: @campaign.tasks.count) %>
+        <% if @campaign.tasks.count.positive? && overdue_count.positive? %> · <span style="color:var(--rose-600);font-weight:600"><%= t("marketingos.campaign.overdue_inline", count: overdue_count) %></span><% end %>
+      </span>
+    </div>
+    <div class="progressbar" role="progressbar" aria-valuenow="<%= @campaign.progress_percent %>" aria-valuemin="0" aria-valuemax="100">
+      <div style="width:<%= [@campaign.progress_percent, 4].max %>%"></div>
+    </div>
+  </div>
+</div>
+
+<%# ── Lifecycle rail ───────────────────────────────────────── %>
+<%= render "campaigns/lifecycle_rail", campaign: @campaign, current_stage: stage %>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <%# ── Việc ưu tiên ──────────────────────────────────────── %>
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.campaign.priority_tasks") %></h2>
+        <span class="sub"><%= t("marketingos.campaign.open_tasks", count: open_tasks.size) %></span>
+        <span class="spacer"></span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <% %w[all mine overdue blocked waiting].each do |key| %>
+            <% filter_value = key == "all" ? "" : key %>
+            <% active = (@task_filter || "") == filter_value %>
+            <% classes = active ? "pill" : "pill pill-gray" %>
+            <%= link_to t("marketingos.campaign.filters.#{key}"),
+                  campaign_path(@campaign, filter: filter_value.presence, anchor: "stage-content"),
+                  class: classes, style: "text-decoration:none" %>
+          <% end %>
+        </div>
+      </div>
+      <div class="card-body tight">
+        <% if priority_tasks.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.campaign.no_tasks"),
+                hint: t("marketingos.campaign.no_tasks_hint"), icon_name: "check" %>
+        <% else %>
+          <% priority_tasks.first(7).each do |task| %>
+            <div class="task-row">
+              <% if can_edit %>
+                <%= button_to task_path(task, task: { status: task.done? ? "open" : "done" }), method: :patch,
+                      class: ["task-check", ("is-done" if task.done?)].compact,
+                      "aria-label": task.done? ? t("marketingos.campaign.reopen_task") : t("marketingos.campaign.complete_task"),
+                      form: { style: "display:inline" } do %>
+                  <%= icon("check", size: 12) if task.done? %>
+                <% end %>
+              <% else %>
+                <span class="task-check <%= 'is-done' if task.done? %>" aria-hidden="true"><%= icon("check", size: 12) if task.done? %></span>
+              <% end %>
+              <div class="task-main">
+                <div class="task-title <%= 'done' if task.done? %>"><%= task.title %></div>
+                <div class="task-sub">
+                  <% if task.assignee %><span><%= task.assignee.name %></span><% end %>
+                  <% if task.blocked_reason.present? %><span class="blocked-tag"><%= icon("alert", size: 12) %> <%= t("marketingos.campaign.blocked_by", reason: task.blocked_reason) %></span><% end %>
+                </div>
+              </div>
+              <div class="task-right">
+                <% if task.priority %><span class="prio prio-<%= task.priority %>"><%= t("marketingos.priority.#{task.priority}", default: task.priority.upcase) %></span><% end %>
+                <% if task.due_date %><span class="due <%= 'overdue' if task.overdue? %>"><%= fmt_date(task.due_date) %></span><% end %>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+        <% if can_edit %>
+          <details style="margin-top:12px">
+            <summary class="btn btn-ghost btn-sm" style="list-style:none;cursor:pointer">+ <%= t("marketingos.campaign.add_task") %></summary>
+            <%= form_with model: Task.new, url: tasks_path, local: true, class: "card" do |f| %>
+              <%= f.hidden_field :campaign_id, value: @campaign.id %>
+              <div style="padding:14px 16px">
+                <div class="field"><%= f.label :title, t("marketingos.campaign.task_title") %><%= f.text_field :title, required: true %></div>
+                <div class="form-grid-2">
+                  <div class="field">
+                    <%= f.label :assignee_id, t("marketingos.campaign.assignee") %>
+                    <%= f.select :assignee_id, current_organization.users.map { |u| [u.name, u.id] }, { include_blank: t("marketingos.campaign.unassigned") } %>
+                  </div>
+                  <div class="field">
+                    <%= f.label :priority, t("marketingos.campaign.priority") %>
+                    <%= f.select :priority, Task::PRIORITIES.map { |p| [t("marketingos.priority.#{p}", default: p), p] }, { selected: "medium" } %>
+                  </div>
+                </div>
+                <div class="form-grid-2">
+                  <div class="field"><%= f.label :due_date, t("marketingos.campaign.due_date") %><%= f.date_field :due_date %></div>
+                  <div class="field"><%= f.label :blocked_reason, t("marketingos.campaign.blocker") %><%= f.text_field :blocked_reason %></div>
+                </div>
+                <div class="form-grid-2">
+                  <div class="field"><%= f.label :milestone_id, t("marketingos.campaign.milestone") %>
+                    <%= f.select :milestone_id, @milestones.map { |m| [m.title, m.id] }, { include_blank: "—" } %></div>
+                  <div class="field"><%= f.label :depends_on_id, t("marketingos.campaign.depends_on") %>
+                    <%= f.select :depends_on_id, @campaign.tasks.map { |dep| [dep.title, dep.id] }, { include_blank: "—" } %></div>
+                </div>
+                <button class="btn btn-primary btn-sm"><%= t("marketingos.campaign.add_task") %></button>
+              </div>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Đang chờ duyệt ────────────────────────────────────── %>
+    <div class="card" id="stage-review">
+      <div class="card-head">
+        <h2><%= t("marketingos.campaign.awaiting_approval") %></h2>
+        <span class="sub"><%= t("marketingos.campaign.items_count", count: pending_artifacts.size) %></span>
+        <span class="spacer"></span>
+        <%= link_to t("marketingos.nav.content_studio"), content_studio_path, class: "btn btn-ghost btn-sm" if can_edit %>
+      </div>
+      <div class="card-body tight">
+        <% if pending_artifacts.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.campaign.nothing_pending"),
+                hint: t("marketingos.campaign.nothing_pending_hint"), icon_name: "check" %>
+        <% else %>
+          <% pending_artifacts.each do |a| %>
+            <div class="approval-card">
+              <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
+              <div class="approval-main">
+                <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
+                <div class="approval-sub">
+                  v<%= a.version %> · <%= a.created_by&.name || "—" %>
+                  <% if a.ai_generated? %> · <span class="pill pill-violet" style="padding:1px 7px"><%= icon("spark", size: 10) %> <%= a.ai_label %></span><% end %>
+                </div>
+                <div class="approval-foot">
+                  <% latest = a.comments.order(created_at: :desc).first %>
+                  <% if latest %>
+                    <span class="avatar-stack" title="<%= latest.user.name %>"><%= avatar(latest.user.name) %></span>
+                    <span style="font-size:12.5px;color:var(--muted)">“<%= truncate(latest.body, length: 60) %>” — <%= latest.user.name %></span>
+                  <% else %>
+                    <span style="font-size:12.5px;color:var(--muted)"><%= t("marketingos.campaign.no_feedback_yet") %></span>
+                  <% end %>
+                  <span style="flex:1"></span>
+                  <%= link_to t("marketingos.campaign.open_to_review"), artifact_path(a), class: "btn btn-primary btn-sm" %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Góp ý mới (theo artifact) ─────────────────────────── %>
+    <% if recent_feedback.any? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.campaign.new_feedback") %></h2><span class="sub"><%= t("marketingos.campaign.by_document") %></span></div>
+        <div class="card-body tight">
+          <% recent_feedback.each do |c| %>
+            <div class="task-row" style="align-items:flex-start">
+              <%= avatar(c.user.name) %>
+              <div class="task-main">
+                <div class="task-title" style="font-size:14px">
+                  <%= link_to truncate((c.artifact&.title || "Artifact"), length: 48), artifact_path(c.artifact), style: "font-weight:600" %>
+                </div>
+                <div class="task-sub">“<%= truncate(c.body, length: 110) %>”</div>
+              </div>
+              <span class="due"><%= fmt_datetime(c.created_at) %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# ── Content & Scripts (dữ liệu thật theo stage) ────────── %>
+    <div class="card" id="stage-content">
+      <div class="card-head">
+        <h2><%= t("marketingos.campaign.content_scripts") %></h2>
+        <span class="sub">
+          <%= stage_filter ? kind_label(stage_filter) : t("marketingos.campaign.all_kinds") %>
+        </span>
+        <span class="spacer"></span>
+        <% if can_edit %>
+          <% { "brief" => "Brief", "persona" => "Persona", "content_plan" => "Plan" }.each do |kind, label| %>
+            <%= button_to "+ #{label}", generate_campaign_path(@campaign, kind: kind), method: :post,
+                  class: "btn btn-secondary btn-sm", form: { style: "display:inline" } %>
+          <% end %>
+          <details class="inline-details">
+            <summary class="btn btn-ghost btn-sm"><%= icon("spark", size: 12) %> <%= t("marketingos.campaign.draft_script") %></summary>
+            <%= form_with url: generate_campaign_path(@campaign), method: :post, local: true do %>
+              <div class="field">
+                <label><%= t("marketingos.campaign.script_kind") %></label>
+                <select name="kind" required>
+                  <% Ai::Workflows::ScriptDraft::SCRIPT_KINDS.each do |k| %>
+                    <option value="<%= k %>"><%= kind_label(k) %></option>
+                  <% end %>
+                </select>
+              </div>
+              <div class="field">
+                <label><%= t("marketingos.campaign.prompt_template") %></label>
+                <select name="prompt_template_id">
+                  <option value=""><%= t("marketingos.campaign.no_template") %></option>
+                  <% @prompt_templates.each do |pt| %>
+                    <option value="<%= pt.id %>"><%= pt.version_label %> · <%= t("marketingos.prompt_templates.categories.#{pt.category}", default: pt.category.humanize) %></option>
+                  <% end %>
+                </select>
+              </div>
+              <div class="field">
+                <label><%= t("marketingos.campaign.channel") %></label>
+                <input type="text" name="channel" placeholder="facebook, tiktok…">
+              </div>
+              <button class="btn btn-primary btn-sm"><%= t("marketingos.campaign.create_draft") %></button>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+      <div class="card-body tight">
+        <% if shown_artifacts.empty? %>
+          <%= render "shared/empty_state",
+                message: stage_filter ? t("marketingos.campaign.no_content_kind", kind: kind_label(stage_filter)) : t("marketingos.campaign.no_content"),
+                hint: t("marketingos.campaign.no_content_hint"),
+                icon_name: "doc" %>
+        <% else %>
+          <% shown_artifacts.each do |a| %>
+            <div class="approval-card" id="artifact-<%= a.id %>">
+              <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
+              <div class="approval-main">
+                <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
+                <div class="approval-sub">
+                  v<%= a.version %> · <%= fmt_datetime(a.updated_at) %>
+                  <% if a.ai_generated? %> · <span class="pill pill-violet" style="padding:1px 7px"><%= icon("spark", size: 10) %> <%= a.ai_label %></span><% end %>
+                </div>
+                <div class="approval-foot">
+                  <%= render "shared/status_pill", status: a.approval_status %>
+                  <span style="font-size:12.5px;color:var(--muted)"><%= t("marketingos.campaign.comment_count", count: a.comments.count) %></span>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Khảo sát (thu thập dữ liệu thật cho brief/persona) ── %>
+    <div class="card" id="surveys">
+      <div class="card-head">
+        <h2><%= t("marketingos.survey.section") %></h2>
+        <span class="sub"><%= t("marketingos.survey.section_sub") %></span>
+        <span class="spacer"></span>
+        <% if can_edit %>
+          <details class="inline-details">
+            <summary class="btn btn-secondary btn-sm">+ <%= t("marketingos.survey.new") %></summary>
+            <%= form_with url: campaign_surveys_path(@campaign), method: :post, local: true do %>
+              <div class="field">
+                <label><%= t("marketingos.survey.title_label") %></label>
+                <input type="text" name="title" required placeholder="<%= t('marketingos.survey.title_placeholder') %>">
+              </div>
+              <div class="field">
+                <label><%= t("marketingos.survey.questions_label") %></label>
+                <textarea name="questions" rows="5" placeholder="<%= t('marketingos.survey.questions_placeholder') %>"></textarea>
+                <div class="task-sub" style="margin-top:4px"><%= t("marketingos.survey.questions_hint") %></div>
+              </div>
+              <button class="btn btn-primary btn-sm"><%= t("marketingos.survey.create") %></button>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+      <div class="card-body tight">
+        <% if @surveys.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.survey.none"),
+                hint: t("marketingos.survey.none_hint"), icon_name: "users" %>
+        <% else %>
+          <% @surveys.each do |s| %>
+            <div class="task-row">
+              <span class="thumb"><%= icon("users", size: 18) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= link_to s.title, survey_path(s) %></div>
+                <div class="task-sub"><%= t("marketingos.survey.response_count", count: s.response_count) %></div>
+              </div>
+              <%= render "shared/status_pill", status: { "draft" => "draft", "open" => "in_progress", "closed" => "done" }[s.status] %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Thảo luận chung ───────────────────────────────────── %>
+    <div class="card" id="comments">
+      <div class="card-head"><h2><%= t("marketingos.campaign.discussion") %></h2></div>
+      <div class="card-body">
+        <% if policy_for.allowed?(:comment, subject: @campaign) %>
+          <%= form_with model: @comment, url: comments_path, local: true, class: "field" do |f| %>
+            <%= f.hidden_field :campaign_id, value: @campaign.id %>
+            <%= f.text_area :body, rows: 2, placeholder: t("marketingos.campaign.comment_placeholder"), required: true %>
+            <button class="btn btn-primary btn-sm" style="margin-top:8px"><%= t("marketingos.campaign.send_comment") %></button>
+          <% end %>
+        <% end %>
+        <% if @comments.exists? %>
+          <% @comments.order(created_at: :desc).each do |c| %>
+            <div class="task-row" style="align-items:flex-start"
+                 data-controller="quick-translate"
+                 data-quick-translate-campaign-id-value="<%= @campaign.id %>"
+                 data-quick-translate-target-value="<%= I18n.locale == :en ? 'en' : 'vi' %>"
+                 data-quick-translate-loading-value="<%= t('marketingos.quick_translate.loading') %>">
+              <%= avatar(c.user.name) %>
+              <div class="task-main">
+                <div class="task-sub" style="margin:0 0 2px"><b style="color:var(--ink)"><%= c.user.name %></b> · <%= fmt_datetime(c.created_at) %></div>
+                <div style="font-size:14px" data-quick-translate-target="source"><%= c.body %></div>
+                <div class="qt-output" data-quick-translate-target="output" hidden></div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm qt-btn"
+                      data-quick-translate-target="button"
+                      data-action="quick-translate#translate"><%= t("marketingos.quick_translate.button") %></button>
+            </div>
+          <% end %>
+        <% else %>
+          <%= render "shared/empty_state", message: t("marketingos.campaign.no_discussion"), icon_name: "doc" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <%# ── Right rail ──────────────────────────────────────────── %>
+  <div class="ws-right">
+    <div class="card copilot-card">
+      <div class="card-head">
+        <h2><%= icon("spark", size: 16) %> <%= t("marketingos.campaign.copilot") %></h2>
+        <span class="spacer"></span>
+        <%= ai_status_badge %>
+      </div>
+      <div class="copilot-body">
+        <div class="nba">
+          <div class="nba-title"><%= nba[:title] %></div>
+          <div class="nba-why"><%= nba[:why] %></div>
+          <% if nba[:cta] == :generate %>
+            <%= button_to t("marketingos.campaign.copilot_do"), generate_campaign_path(@campaign, kind: nba[:kind]),
+                  method: :post, class: "btn btn-primary btn-sm", form: { style: "display:inline" } %>
+          <% elsif nba[:cta] == :queue %>
+            <%= link_to t("marketingos.campaign.copilot_queue"), "#stage-review", class: "btn btn-primary btn-sm",
+                  onclick: "document.getElementById('stage-review').scrollIntoView({behavior:'smooth'});return false" %>
+          <% elsif nba[:cta] == :tasks %>
+            <%= link_to t("marketingos.campaign.copilot_tasks"), "#", class: "btn btn-primary btn-sm",
+                  onclick: "document.querySelector('.card .card-head h2').closest('.card').scrollIntoView({behavior:'smooth'});return false" %>
+          <% else %>
+            <%= link_to t("marketingos.campaign.copilot_status"), "#stage-launch", class: "btn btn-primary btn-sm" %>
+          <% end %>
+        </div>
+        <div class="ai-note">
+          <%= icon("alert", size: 14) %>
+          <span><%= t("marketingos.campaign.copilot_note") %></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.campaign.upcoming_meeting") %></h2></div>
+      <div class="card-body">
+        <% if upcoming_event %>
+          <div class="meet-when">
+            <div class="meet-date">
+              <div class="d"><%= upcoming_event.starts_at.in_time_zone.strftime("%d") %></div>
+              <div class="m"><%= upcoming_event.starts_at.in_time_zone.strftime("%b") %></div>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14.5px"><%= upcoming_event.title %></div>
+              <div style="font-size:12.5px;color:var(--muted)">
+                <%= fmt_datetime(upcoming_event.starts_at) %>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <% if upcoming_event.location.present? %>
+              <div class="kv"><span class="k"><%= t("marketingos.campaign.location") %></span><span class="v"><%= upcoming_event.location %></span></div>
+            <% end %>
+            <% if upcoming_event.agenda.present? %>
+              <div class="kv"><span class="k"><%= t("marketingos.campaign.agenda") %></span><span class="v" style="max-width:60%"><%= truncate(upcoming_event.agenda, length: 90) %></span></div>
+            <% end %>
+            <div class="kv"><span class="k"><%= t("marketingos.campaign.workspace_time") %></span><span class="v"><%= Time.zone.name %></span></div>
+            <% att = upcoming_event.event_attendees.includes(:user) %>
+            <% if att.any? %>
+              <div class="kv"><span class="k"><%= t("marketingos.campaign.attendees") %></span>
+                <span class="v avatar-stack">
+                  <% att.first(5).each do |a| %>
+                    <span class="avatar" title="<%= a.user.name %> — <%= t("marketingos.campaign.rsvp_#{a.rsvp}", default: a.rsvp) %>"><%= initials(a.user.name) %></span>
+                  <% end %>
+                </span>
+              </div>
+              <% mine = upcoming_event.rsvp_for(current_user) %>
+              <% if mine %>
+                <div class="kv"><span class="k"><%= t("marketingos.campaign.your_rsvp") %></span><span class="v">
+                  <%= t("marketingos.campaign.rsvp_#{mine.rsvp}", default: t("marketingos.campaign.rsvp_pending")) %>
+                </span></div>
+              <% end %>
+            <% end %>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <%= link_to t("marketingos.campaign.download_ics"), ics_event_path(upcoming_event), class: "btn btn-secondary btn-sm" %>
+            <% if policy_for.allowed?(:comment, subject: @campaign) %>
+              <% mine = upcoming_event.rsvp_for(current_user) %>
+              <% unless mine %>
+                <%= button_to t("marketingos.campaign.join_event"), rsvp_event_path(upcoming_event, rsvp: "yes"), method: :post, class: "btn btn-success btn-sm", form: { style: "display:inline" } %>
+              <% end %>
+            <% end %>
+          </div>
+          <% if can_edit %>
+            <details style="margin-top:10px">
+              <summary class="btn btn-ghost btn-sm" style="list-style:none;cursor:pointer">+ <%= t("marketingos.campaign.invite_attendee") %></summary>
+              <%= form_with url: event_event_attendees_path(upcoming_event), local: true, method: :post do %>
+                <div style="padding-top:10px">
+                  <div class="field">
+                    <label for="att-<%= upcoming_event.id %>"><%= t("marketingos.campaign.attendee_select") %></label>
+                    <select id="att-<%= upcoming_event.id %>" name="user_ids[]" multiple size="4">
+                      <% current_organization.users.each do |u| %>
+                        <option value="<%= u.id %>"><%= u.name %></option>
+                      <% end %>
+                    </select>
+                  </div>
+                  <button class="btn btn-primary btn-sm"><%= t("marketingos.campaign.send_invite") %></button>
+                </div>
+              <% end %>
+            </details>
+          <% end %>
+        <% else %>
+          <%= render "shared/empty_state", message: t("marketingos.campaign.no_meeting"),
+                hint: t("marketingos.campaign.no_meeting_hint"), icon_name: "calendar" %>
+        <% end %>
+        <% if can_edit %>
+          <details style="margin-top:10px">
+            <summary class="btn btn-ghost btn-sm" style="list-style:none;cursor:pointer">+ <%= t("marketingos.campaign.create_event") %></summary>
+            <%= form_with model: Event.new, url: events_path, local: true, class: "card" do |f| %>
+              <%= f.hidden_field :campaign_id, value: @campaign.id %>
+              <div style="padding:14px 16px">
+                <div class="field"><%= f.label :title, t("marketingos.campaign.event_title") %><%= f.text_field :title, required: true %></div>
+                <div class="form-grid-2">
+                  <div class="field"><%= f.label :starts_at, t("marketingos.campaign.starts_at") %><%= f.datetime_local_field :starts_at, required: true %></div>
+                  <div class="field"><%= f.label :ends_at, t("marketingos.campaign.ends_at") %><%= f.datetime_local_field :ends_at, required: true %></div>
+                </div>
+                <div class="field"><%= f.label :location, t("marketingos.campaign.location_or_link") %><%= f.text_field :location %></div>
+                <div class="field"><%= f.label :agenda, t("marketingos.campaign.agenda") %><%= f.text_area :agenda, rows: 2 %></div>
+                <button class="btn btn-primary btn-sm"><%= t("marketingos.campaign.create_event") %></button>
+              </div>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card" id="collaborators">
+      <div class="card-head"><h2><%= t("marketingos.campaign.access_title") %></h2><span class="sub"><%= t("marketingos.campaign.access_sub") %></span></div>
+      <div class="card-body tight">
+        <% @campaign.campaign_collaborators.includes(:user).each do |c| %>
+          <div class="task-row">
+            <%= avatar(c.user.name) %>
+            <div class="task-main">
+              <div class="task-title"><%= c.user.name %></div>
+              <div class="task-sub"><%= c.user.role_in(current_organization) %> · <%= c.access %></div>
+            </div>
+            <% if can_manage %>
+              <%= button_to t("marketingos.campaign.revoke"), collaborator_path(c), method: :delete,
+                    class: "btn btn-ghost btn-sm", form: { style: "display:inline" } %>
+            <% end %>
+          </div>
+        <% end %>
+        <% if @campaign.campaign_collaborators.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.campaign.no_collaborators"), icon_name: "users" %>
+        <% end %>
+        <% if can_manage %>
+          <%= form_with url: campaign_collaborators_path(@campaign), local: true, method: :post do %>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <select name="user_id" required aria-label="<%= t('marketingos.campaign.select_member') %>" style="flex:1;min-width:160px">
+                <% current_organization.users.each do |u| %>
+                  <option value="<%= u.id %>"><%= u.name %> (<%= u.role_in(current_organization) %>)</option>
+                <% end %>
+              </select>
+              <select name="access" aria-label="<%= t('marketingos.campaign.access_level') %>" style="max-width:150px">
+                <option value="view"><%= t("marketingos.campaign.access_view") %></option>
+                <option value="comment"><%= t("marketingos.campaign.access_comment") %></option>
+              </select>
+              <button class="btn btn-primary btn-sm"><%= t("marketingos.campaign.grant") %></button>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <% if can_edit %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.campaign.image_studio") %></h2><span class="sub"><%= t("marketingos.campaign.image_studio_sub") %></span></div>
+        <div class="card-body">
+          <%= form_with url: create_image_prompt_campaign_path(@campaign), local: true, method: :post do %>
+            <div class="form-grid-2">
+              <div class="field"><label for="img-objective"><%= t("marketingos.campaign.image_objective") %></label>
+                <input type="text" id="img-objective" name="objective" value="<%= @campaign.objective.to_s.truncate(80) %>"></div>
+              <div class="field"><label for="img-channel"><%= t("marketingos.campaign.channel") %></label>
+                <select id="img-channel" name="channel">
+                  <option value=""><%= t("marketingos.campaign.image_general") %></option>
+                  <% %w[Facebook TikTok Instagram Email].each do |ch| %><option><%= ch %></option><% end %>
+                </select></div>
+            </div>
+            <div class="form-grid-2">
+              <div class="field"><label for="img-dim"><%= t("marketingos.campaign.image_dimensions") %></label>
+                <select id="img-dim" name="dimensions">
+                  <% ["1080x1080", "1080x1920", "1200x628"].each do |d| %><option><%= d %></option><% end %>
+                </select></div>
+              <div class="field"><label for="img-style"><%= t("marketingos.campaign.image_style") %></label>
+                <input type="text" id="img-style" name="style" value="brand-consistent"></div>
+            </div>
+            <div class="field"><label for="img-excl"><%= t("marketingos.campaign.image_exclusions") %></label>
+              <input type="text" id="img-excl" name="exclusions" placeholder="<%= t('marketingos.campaign.image_exclusions_placeholder') %>"></div>
+            <button class="btn btn-secondary btn-sm"><%= icon("spark", size: 14) %> <%= t("marketingos.campaign.image_create") %></button>
+            <p style="font-size:12px;color:var(--muted);margin:8px 0 0"><%= t("marketingos.campaign.image_note") %></p>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="card" id="stage-launch">
+      <div class="card-head"><h2><%= t("marketingos.campaign.health") %></h2></div>
+      <div class="card-body">
+        <%
+          total_days = (@campaign.end_date && @campaign.start_date) ? [(@campaign.end_date - @campaign.start_date).to_i, 1].max : nil
+          elapsed_pct = total_days ? [((Date.current - @campaign.start_date).to_f / total_days * 100).round.clamp(0, 100), 0].max : nil
+        %>
+        <div class="kv"><span class="k"><%= t("marketingos.campaign.timeline") %></span><span class="v">
+          <% if total_days %>
+            <%= t("marketingos.campaign.time_elapsed", percent: elapsed_pct) %>
+          <% else %><%= t("marketingos.campaign.no_dates") %><% end %>
+        </span></div>
+        <div class="kv"><span class="k"><%= t("marketingos.campaign.open_work") %></span><span class="v"><%= open_tasks.size %><% if overdue_count.positive? %> <span style="color:var(--rose-600)">(<%= t("marketingos.campaign.overdue_inline", count: overdue_count) %>)</span><% end %></span></div>
+        <% pending_n = pending_artifacts.size %>
+        <div class="kv"><span class="k"><%= t("marketingos.campaign.approval_risk") %></span><span class="v">
+          <% if pending_n.zero? %><span style="color:#0B7E70"><%= t("marketingos.campaign.not_blocked") %></span>
+          <% else %><%= t("marketingos.campaign.pending_docs", count: pending_n) %><% end %>
+        </span></div>
+        <% if pending_n.positive? %>
+          <div class="kv"><span class="k"><%= t("marketingos.campaign.available_approvers") %></span>
+            <span class="v"><%= current_organization.memberships.where(role: %w[approver manager owner admin]).count %></span></div>
+        <% end %>
+        <div class="kv"><span class="k"><%= t("marketingos.campaign.artifacts") %></span><span class="v"><%= t("marketingos.campaign.approved_ratio", approved: @campaign.artifacts.where(approval_status: "approved").count, total: @artifacts.size) %></span></div>
+        <div class="kv"><span class="k"><%= t("marketingos.campaign.budget") %></span><span class="v">
+          <% if @campaign.budget.present? %><%= number_to_currency(@campaign.budget, unit: "VND ", precision: 0) %>
+          <% else %><span style="color:var(--muted);font-weight:500"><%= t("marketingos.campaign.no_budget") %></span><% end %>
+        </span></div>
+        <% @milestones.each do |m| %>
+          <div class="kv">
+            <span class="k"><%= icon("chart", size: 12) %> <%= m.title %><% if m.due_at %> · <%= fmt_date(m.due_at.to_date) %><% end %></span>
+            <span class="v"><%= render "shared/status_pill", status: { "not_started" => "draft", "in_progress" => "in_progress", "blocked" => "changes_requested", "ready_for_review" => "in_review", "completed" => "done" }[m.effective_state] %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# ── Dialog mời người duyệt ───────────────────────────────── %>
+<% if can_manage %>
+  <dialog id="dlg-invite">
+    <div class="dlg-head">
+      <h3><%= t("marketingos.campaign.invite_reviewer") %></h3>
+      <button class="icon-btn" onclick="document.getElementById('dlg-invite').close()" aria-label="<%= t('marketingos.campaign.close') %>"><%= icon("x") %></button>
+    </div>
+    <div class="dlg-body">
+      <%= form_with url: campaign_campaign_invites_path(@campaign), local: true do %>
+        <div class="field">
+          <label for="inv-email"><%= t("marketingos.campaign.invite_email") %></label>
+          <input type="email" id="inv-email" name="email" required placeholder="nguoi.duyet@congty.vn">
+        </div>
+        <div class="field">
+          <label for="inv-access"><%= t("marketingos.campaign.invite_scope") %></label>
+          <select id="inv-access" name="access">
+            <option value="approve" selected><%= t("marketingos.campaign.invite_scope_approve") %></option>
+            <option value="comment"><%= t("marketingos.campaign.invite_scope_comment") %></option>
+            <option value="view"><%= t("marketingos.campaign.invite_scope_view") %></option>
+          </select>
+          <p style="font-size:12px;color:var(--muted);margin:6px 0 0">
+            <%= t("marketingos.campaign.invite_note_html").html_safe %>
+          </p>
+        </div>
+        <div class="field">
+          <label style="display:flex;gap:8px;align-items:flex-start;font-weight:500">
+            <input type="checkbox" name="confirm" required style="width:auto;margin-top:3px">
+            <span><%= t("marketingos.campaign.invite_confirm") %></span>
+          </label>
+        </div>
+        <button class="btn btn-primary"><%= t("marketingos.campaign.send_invitation") %></button>
+      <% end %>
+    </div>
+  </dialog>
+<% end %>

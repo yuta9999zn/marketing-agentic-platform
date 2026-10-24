@@ -1,0 +1,84 @@
+# MarketingOS — stack production cho MỘT VPS.
+#
+# Chạy:  docker compose -f docker-compose.prod.yml --env-file .env.production --profile ai up -d --build
+# Xem:   docker compose -f docker-compose.prod.yml logs -f app worker
+#
+# Ba dịch vụ:
+#   app    — Rails (web). Entrypoint tự chạy db:prepare khi khởi động.
+#   worker — Solid Queue, chạy tác vụ AI ở nền. BẮT BUỘC phải có, nếu không
+#            bản nháp AI sẽ nằm mãi trong hàng đợi mà không ai xử lý.
+#   ollama — mô hình chạy nội bộ (profile "ai", tuỳ chọn)
+#
+# Cơ sở dữ liệu: SQLite trên volume gắn kèm — đủ cho một VPS một app.
+# Muốn Postgres thì xem docs/DEPLOY_VPS.md.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: marketingos:latest
+  restart: unless-stopped
+  env_file: .env.production
+  environment:
+    RAILS_ENV: production
+    # Ollama nằm trong compose network nên host là tên service "ollama", KHÔNG
+    # phải localhost (localhost trong container là chính container đó).
+    #
+    # Cố tình KHÔNG đọc OLLAMA_HOST từ .env.production: file đó thường được copy
+    # từ .env.example vốn ghi localhost cho môi trường dev, copy nguyên sang đây
+    # là hỏng ngay. Muốn trỏ sang Ollama ở máy khác thì đặt OLLAMA_REMOTE_HOST.
+    OLLAMA_HOST: ${OLLAMA_REMOTE_HOST:-http://ollama:11434}
+  volumes:
+    - storage:/rails/storage
+
+services:
+  app:
+    <<: *app
+    command: ["./bin/thrust", "./bin/rails", "server"]
+    # Mặc định CHỈ bind localhost: trên VPS thường đã có reverse proxy
+    # (Caddy/nginx) giữ cổng 80/443, bind 0.0.0.0:80 sẽ tranh cổng và làm sập
+    # proxy đó. Không có proxy thì đặt APP_BIND=0.0.0.0 APP_PORT=80.
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Worker riêng: tác vụ AI mất 20-90 giây, chạy chung tiến trình web sẽ chiếm
+  # thread của Puma và làm chậm cả trang.
+  #
+  # Chờ app khỏe rồi mới chạy: chính app là nơi migrate database, worker khởi
+  # động sớm sẽ không tìm thấy bảng hàng đợi.
+  worker:
+    <<: *app
+    command: ["./bin/jobs"]
+    depends_on:
+      app:
+        condition: service_healthy
+    # Không đặt healthcheck: ảnh ruby-slim không có procps/pgrep. Kiểm tra bằng
+    # `docker compose logs worker` (xem docs/DEPLOY_VPS.md mục 5).
+
+  # AI chạy nội bộ. Chỉ bật khi truyền --profile ai.
+  # Không chạy service này thì đặt AI_PROVIDER=fake, hoặc trỏ OLLAMA_HOST ra máy khác.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - ollama:/root/.ollama
+    # expose chứ không ports: chỉ container trong stack gọi được.
+    # TUYỆT ĐỐI không publish 11434 ra internet — endpoint này không có xác thực.
+    expose:
+      - "11434"
+    deploy:
+      resources:
+        limits:
+          # qwen2.5:7b cần ~6GB. VPS nhỏ hơn thì dùng qwen2.5:3b (xem docs).
+          memory: ${OLLAMA_MEMORY:-8g}
+
+volumes:
+  storage:
+  ollama:

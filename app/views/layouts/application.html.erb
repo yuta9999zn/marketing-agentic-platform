@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>">
+  <head>
+    <title><%= content_for(:title) || "MarketingOS" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <% if logged_in? && controller_name != "sessions" %>
+      <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true" tabindex="-1">
+      <div class="app">
+        <aside class="sidebar">
+          <div class="brand"><span class="logo">M</span> MarketingOS</div>
+
+          <div class="nav-group-label"><%= t("marketingos.nav.workspace") %></div>
+          <% is_scoped = campaign_scoped_role? %>
+          <% nav = [
+            { key: "dashboard",  label: t("marketingos.nav.overview"),       icon: "home",     url: root_path, show: true },
+            { key: "campaigns",  label: t("marketingos.nav.campaigns"),      icon: "folder",   url: campaigns_path, show: true,
+              count: is_scoped ? nil : Campaign.in_org(current_organization).count },
+            { key: "content_studio", label: t("marketingos.nav.content_studio"), icon: "pen", url: content_studio_path, show: !is_scoped },
+            { key: "calendar",   label: t("marketingos.nav.calendar"),       icon: "calendar", url: calendar_path, show: !is_scoped },
+            { key: "clients",    label: t("marketingos.nav.clients"),        icon: "briefcase", url: clients_path, show: policy_for.allowed?(:manage) },
+            { key: "templates",  label: t("marketingos.nav.templates"),      icon: "layers",   url: templates_path, show: !is_scoped },
+            { key: "members",    label: t("marketingos.nav.settings"),       icon: "settings", url: members_path, show: policy_for.allowed?(:admin) }
+          ] %>
+          <% nav.each do |item| %>
+            <% next unless item[:show] %>
+            <%= link_to item[:url], class: ["nav-item", ("active" if controller_name == item[:key] || (item[:key] == "dashboard" && controller_name == "dashboard"))].compact do %>
+              <%= icon(item[:icon]) %>
+              <%= item[:label] %>
+              <% if item[:count] %><span class="count"><%= item[:count] %></span><% end %>
+            <% end %>
+          <% end %>
+
+          <div class="sidebar-foot">
+            <div class="ws-chip">
+              <span class="ws-avatar"><%= initials(current_organization&.name) %></span>
+              <div>
+                <div class="ws-name"><%= current_organization&.name %></div>
+                <div class="ws-role"><%= t("marketingos.nav.workspace") %> · <%= current_role %></div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="main">
+          <header class="topbar">
+            <label for="nav-toggle" class="icon-btn nav-burger" aria-label="<%= t('marketingos.nav.menu') %>" tabindex="0">
+              <%= icon("menu", label: "Menu") %>
+            </label>
+            <div class="searchbox">
+              <%= icon("search") %>
+              <input type="text" placeholder="<%= t('marketingos.nav.search_placeholder') %>" aria-label="<%= t('marketingos.nav.search_placeholder') %>">
+            </div>
+            <div style="flex:1"></div>
+            <%# Đổi ngôn ngữ: lưu vào tùy chọn user rồi quay lại đúng trang đang xem,
+                nên điều hướng tiếp vẫn giữ ngôn ngữ đã chọn. %>
+            <div class="lang-switch">
+              <% User::LOCALES.each do |loc| %>
+                <% if I18n.locale.to_s == loc %>
+                  <span class="lang-opt active"><%= loc.upcase %></span>
+                <% else %>
+                  <%= button_to loc.upcase, settings_path(user: { locale: loc }, return_to: request.fullpath),
+                        method: :patch, class: "lang-opt",
+                        form: { style: "display:inline", "aria-label": t("marketingos.settings.locales.#{loc}") } %>
+                <% end %>
+              <% end %>
+            </div>
+            <%= link_to notifications_path, class: "icon-btn", "aria-label": t("marketingos.nav.notifications") do %>
+              <%= icon("bell") %>
+              <% if current_user.notifications.where(organization: current_organization, read_at: nil).exists? %><span class="dot"></span><% end %>
+            <% end %>
+            <%= link_to settings_path, class: "me", style: "text-decoration:none;color:inherit",
+                        title: t("marketingos.settings.title") do %>
+              <div class="who">
+                <div class="name"><%= current_user.name %></div>
+                <div class="role"><%= current_role %></div>
+              </div>
+              <%= avatar(current_user.name) %>
+            <% end %>
+            <%= button_to logout_path, method: :delete, class: "icon-btn", "aria-label": t("marketingos.nav.logout"), form: { style: "display:inline", "aria-label": t("marketingos.nav.logout") } do icon("x") end %>
+          </header>
+
+          <% if flash[:notice].present? || flash[:alert].present? %>
+            <div class="content" style="padding-bottom:0">
+              <% if flash[:notice] %><div class="flash flash-notice" role="status"><%= flash[:notice] %></div><% end %>
+              <% if flash[:alert] %><div class="flash flash-alert" role="alert"><%= flash[:alert] %></div><% end %>
+            </div>
+          <% end %>
+
+          <main class="content">
+            <%= yield %>
+          </main>
+        </div>
+      </div>
+    <% else %>
+      <%= yield %>
+    <% end %>
+  </body>
+</html>

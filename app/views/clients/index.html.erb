@@ -1,0 +1,45 @@
+<div class="page-head">
+  <div><h1><%= t("marketingos.nav.clients") %></h1><div class="sub"><%= t("marketingos.clients.count", count: @clients.size) %></div></div>
+</div>
+
+<% if policy_for.allowed?(:manage) %>
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body" style="padding-top:16px">
+      <%= form_with model: Client.new, url: clients_path, local: true do |f| %>
+        <div class="form-grid-2">
+          <div class="field"><%= f.label :name, t("marketingos.clients.name") %><%= f.text_field :name, required: true %></div>
+          <div class="field"><%= f.label :industry, t("marketingos.clients.industry") %><%= f.text_field :industry %></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field"><%= f.label :contact_name, t("marketingos.clients.contact_name") %><%= f.text_field :contact_name %></div>
+          <div class="field"><%= f.label :contact_email, t("marketingos.clients.contact_email") %><%= f.email_field :contact_email %></div>
+        </div>
+        <div class="field"><%= f.label :notes, t("marketingos.clients.notes") %><%= f.text_field :notes %></div>
+        <button class="btn btn-primary btn-sm"><%= t("marketingos.clients.add") %></button>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<div class="card">
+  <div class="card-body tight">
+    <% if @clients.empty? %>
+      <%= render "shared/empty_state", message: t("marketingos.clients.empty"), icon_name: "briefcase" %>
+    <% else %>
+      <% @clients.each do |c| %>
+        <div class="task-row">
+          <span class="thumb"><%= initials(c.name) %></span>
+          <div class="task-main">
+            <div class="task-title"><%= link_to c.name, client_path(c) %></div>
+            <div class="task-sub">
+              <%= c.industry.presence || "—" %>
+              <% if c.contact_name.present? %> · <%= c.contact_name %><% end %>
+              <% if c.notes.present? %> · <%= truncate(c.notes, length: 60) %><% end %>
+            </div>
+          </div>
+          <span class="due"><%= t("marketingos.clients.campaign_count", count: c.campaigns.count) %></span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

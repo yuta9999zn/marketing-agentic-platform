@@ -1,0 +1,37 @@
+<%# locals: campaign, current_stage (string|nil) — lifecycle rail theo mockup %>
+<%
+  anchors = { "brief" => "stage-content", "strategy" => "stage-content",
+              "content" => "stage-content", "review" => "stage-review",
+              "launch" => "stage-launch", "report" => "stage-launch" }
+  filterable = %w[brief strategy content]
+%>
+<nav class="lifecycle" aria-label="<%= t('marketingos.lifecycle.aria') %>">
+  <% Campaign::LIFECYCLE_STEPS.each_with_index do |step, i| %>
+    <%
+      state = campaign.lifecycle_state(step[:key])
+      url = if filterable.include?(step[:key])
+        campaign_path(campaign, stage: step[:key], anchor: anchors[step[:key]])
+      else
+        campaign_path(campaign, anchor: anchors[step[:key]])
+      end
+    %>
+    <%= link_to url,
+          class: ["step",
+                  ("is-current" if step[:key] == current_stage),
+                  ("is-done" if state == "completed"),
+                  ("is-blocked" if state == "blocked")].compact,
+          "aria-current": ("step" if step[:key] == current_stage) do %>
+      <span class="step-num"><%= t("marketingos.lifecycle.step", number: format("%02d", i + 1)) %></span>
+      <span class="step-name"><%= step[:label] %></span>
+      <span class="step-state">
+        <% if state == "completed" %><%= icon("check", size: 14) %>
+        <% elsif state == "blocked" %><%= icon("alert", size: 14) %>
+        <% else %><%= icon("clock", size: 14) %><% end %>
+        <%= t("marketingos.lifecycle.states.#{state}", default: state.to_s.humanize) %>
+      </span>
+    <% end %>
+    <% unless i == Campaign::LIFECYCLE_STEPS.size - 1 %>
+      <span class="step-arrow" aria-hidden="true"><%= icon("chev-r", size: 16) %></span>
+    <% end %>
+  <% end %>
+</nav>

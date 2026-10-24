@@ -1,0 +1,9 @@
+Xin chào <%= @reminder.user.name %>,
+
+<% if @reminder.kind == "event_upcoming" -%>
+Sự kiện "<%= @title %>" (<%= @reminder.payload["campaign"] %>) sẽ diễn ra lúc <%= @reminder.payload["starts_at"] %>.
+<% else -%>
+Task "<%= @title %>" sắp đến hạn.
+<% end -%>
+
+Đăng nhập MarketingOS để xem chi tiết.

@@ -1,0 +1,29 @@
+<div class="breadcrumb"><%= link_to @artifact.title, artifact_path(@artifact) %> <%= icon("chev-r", size: 12) %> <span><%= t("marketingos.artifact_form.breadcrumb") %></span></div>
+<div class="page-head"><h1><%= t("marketingos.artifact_form.title") %></h1></div>
+
+<div class="card" style="max-width:860px">
+  <div class="card-body" style="padding-top:20px">
+    <%= form_with model: @artifact, local: true do |f| %>
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :locale, t("marketingos.artifact_form.locale") %>
+          <%= f.select :locale, %w[vi en ja ko zh], { selected: @artifact.locale || "vi" } %></div>
+        <div class="field"><%= f.label :channel, t("marketingos.artifact_form.channel") %>
+          <%= f.select :channel, ["", "Facebook", "TikTok", "Instagram", "Email", "Google", "Landing page"], { selected: @artifact.channel } %></div>
+      </div>
+      <div class="field">
+        <%= f.label :body, t("marketingos.artifact_form.body") %>
+        <%= f.text_area :body, rows: 18, style: "font-family:ui-monospace,Consolas,monospace;font-size:13.5px" %>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><%= f.label :due_date, t("marketingos.artifact_form.due_date") %><%= f.date_field :due_date, value: @artifact.due_date %></div>
+        <div class="field"><%= f.label :source_note, t("marketingos.artifact_form.source_note") %>
+          <%= f.text_field :source_note, value: @artifact.source_note, placeholder: t("marketingos.artifact_form.source_note_placeholder") %></div>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted)"><%= t("marketingos.artifact_form.note") %></p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary"><%= t("marketingos.artifact_form.save") %></button>
+        <%= link_to t("marketingos.common.cancel"), artifact_path(@artifact), class: "btn btn-ghost" %>
+      </div>
+    <% end %>
+  </div>
+</div>
