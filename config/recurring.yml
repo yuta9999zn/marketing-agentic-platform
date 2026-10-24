@@ -16,3 +16,8 @@ production:
   dispatch_due_reminders:
     command: "ReminderDispatchJob.perform_later"
     schedule: every 30 minutes
+  # Lưới an toàn cho bài Facebook đã lên lịch: job delay bị mất sau restart vẫn
+  # được đăng; bài kẹt ở "publishing" được đối soát với feed của Page.
+  facebook_dispatch_due_posts:
+    command: "FacebookDispatchDueJob.perform_later"
+    schedule: every 2 minutes

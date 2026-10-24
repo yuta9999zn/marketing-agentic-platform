@@ -1,0 +1,20 @@
+<%# Xem trước giống bài trên Facebook. Chỉ render — không gọi Meta. %>
+<div class="fb-preview">
+  <div class="fb-preview-head">
+    <span class="thumb"><%= initials(post.facebook_page_connection.page_name) %></span>
+    <div>
+      <div style="font-weight:700;font-size:14px"><%= post.facebook_page_connection.page_name %></div>
+      <div style="font-size:12px;color:var(--muted)">
+        <%= post.scheduled_at ? fb_local_time(post) : t("marketingos.facebook.posts.preview_now") %> · 🌐
+      </div>
+    </div>
+  </div>
+  <div class="fb-preview-body"><%= fb_preview_message(post.message) %></div>
+  <% if post.image.attached? %>
+    <div class="fb-preview-media"><%= image_tag url_for(post.image), alt: post.title.to_s %></div>
+  <% end %>
+  <% if post.link.present? %>
+    <div class="fb-preview-link"><%= icon("link", size: 14) %> <%= link_to post.link.truncate(70), post.link, target: "_blank", rel: "noopener" %></div>
+  <% end %>
+  <div class="fb-preview-foot">👍 <%= t("marketingos.facebook.posts.preview_like") %> · 💬 <%= t("marketingos.facebook.posts.preview_comment") %> · ↗ <%= t("marketingos.facebook.posts.preview_share") %></div>
+</div>

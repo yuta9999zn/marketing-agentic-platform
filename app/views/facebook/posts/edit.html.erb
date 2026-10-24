@@ -1,0 +1,9 @@
+<% content_for(:title) { "#{t('marketingos.common.edit')} · MarketingOS" } %>
+<div class="page-head">
+  <div><h1><%= t("marketingos.facebook.posts.edit_title") %></h1>
+    <div class="sub"><%= t("marketingos.facebook.posts.edit_sub") %></div></div>
+</div>
+<div class="card"><div class="card-body">
+  <%= render "facebook/posts/form", post: @post, url: facebook_post_path(@post), method: :patch,
+        submit_label: t("marketingos.common.save"), timezones: @timezones %>
+</div></div>

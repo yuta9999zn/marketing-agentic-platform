@@ -1,28 +1,180 @@
 <%
   can_manage = policy_for.allowed?(:manage)
+  can_edit = policy_for.allowed?(:edit)
 %>
 
-<div class="page-head">
-  <div>
-    <h1><%= t("marketingos.dashboard.greeting", name: current_user.name.split(" ").first) %></h1>
-    <div class="sub">
-      <%= t("marketingos.dashboard.summary", campaigns: @campaigns_count, tasks: @tasks_open_count,
-            approvals: @pending_approvals_count) %>
+<%# ── Hero ───────────────────────────────────────────────────── %>
+<section class="hero">
+  <div class="hero-text">
+    <h1><%= t("marketingos.dashboard.hero_title") %></h1>
+    <div class="hero-sub"><%= t("marketingos.dashboard.hero_sub") %></div>
+    <div class="hero-actions">
+      <% if @is_internal && can_edit %>
+        <%= link_to (@fb_connection ? new_facebook_post_path : facebook_connection_path), class: "btn btn-primary" do %>
+          <%= icon("spark", size: 16) %> <%= t("marketingos.dashboard.hero_cta") %>
+        <% end %>
+      <% elsif can_manage %>
+        <%= link_to new_campaign_path, class: "btn btn-primary" do %><%= icon("plus", size: 16) %> <%= t("marketingos.dashboard.new_campaign") %><% end %>
+      <% end %>
+      <%= link_to campaigns_path, class: "btn btn-secondary" do %><%= icon("play", size: 16) %> <%= t("marketingos.dashboard.hero_guide") %><% end %>
+    </div>
+    <div class="hero-greeting"><%= t("marketingos.dashboard.greeting", name: current_user.name.split(" ").first) %> ·
+      <%= t("marketingos.dashboard.summary", campaigns: @campaigns_count, tasks: @tasks_open_count, approvals: @pending_approvals_count) %></div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <span class="hero-bot"><svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+      <circle cx="60" cy="12" r="6" fill="#4F46E5"/><rect x="57" y="16" width="6" height="12" rx="3" fill="#4F46E5"/>
+      <rect x="18" y="28" width="84" height="66" rx="22" fill="#fff" stroke="#DDE1F8" stroke-width="2"/>
+      <rect x="30" y="40" width="60" height="42" rx="14" fill="#3730D4"/>
+      <circle cx="48" cy="58" r="6" fill="#fff"/><circle cx="72" cy="58" r="6" fill="#fff"/>
+      <path d="M48 70 Q60 80 72 70" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <rect x="6" y="52" width="12" height="24" rx="6" fill="#C9D0F2"/><rect x="102" y="52" width="12" height="24" rx="6" fill="#C9D0F2"/>
+      <rect x="40" y="94" width="40" height="14" rx="7" fill="#E7E5FD"/>
+    </svg></span>
+    <span class="hero-chip c1"><%= icon("facebook", size: 22) %></span>
+    <span class="hero-chip c2"><%= icon("instagram", size: 22) %></span>
+    <span class="hero-chip c3"><%= icon("tiktok", size: 22) %></span>
+    <span class="hero-chip c4"><%= icon("youtube", size: 22) %></span>
+    <span class="hero-chip c5"><%= icon("image", size: 22) %></span>
+    <span class="hero-chip c6"><%= icon("trend", size: 22) %></span>
+  </div>
+  <% if @is_internal && can_edit %>
+    <%= link_to new_facebook_post_path, class: "btn btn-primary hero-new" do %><%= icon("plus", size: 16) %> <%= t("marketingos.dashboard.hero_new_content") %><% end %>
+  <% end %>
+</section>
+
+<%# ── KPI tiles ──────────────────────────────────────────────── %>
+<div class="kpi-grid">
+  <div class="kpi">
+    <span class="kpi-icon" style="background:var(--indigo-50);color:var(--indigo-700)"><%= icon("doc", size: 20) %></span>
+    <div class="kpi-main">
+      <div class="kpi-label"><%= t("marketingos.dashboard.kpi.content") %></div>
+      <div class="kpi-value"><%= @content_30d %></div>
+      <%= delta_pill(@content_30d, @content_prev) %>
+    </div>
+    <%= sparkline_svg(@chart_created.last(14), color: "#4F46E5") %>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon" style="background:var(--amber-50);color:#A16207"><%= icon("clock", size: 20) %></span>
+    <div class="kpi-main">
+      <div class="kpi-label"><%= t("marketingos.dashboard.kpi.pending") %></div>
+      <div class="kpi-value"><%= @fb_pending_count + @pending_approvals_count %></div>
+      <div class="kpi-note"><%= t("marketingos.dashboard.kpi.pending_note", fb: @fb_pending_count, content: @pending_approvals_count) %></div>
     </div>
   </div>
-  <span class="spacer"></span>
-  <% if can_manage %>
-    <%= link_to new_campaign_path, class: "btn btn-primary" do %><%= icon("plus", size: 16) %> <%= t("marketingos.dashboard.new_campaign") %><% end %>
-  <% end %>
+  <div class="kpi">
+    <span class="kpi-icon" style="background:var(--indigo-50);color:var(--indigo-700)"><%= icon("calendar", size: 20) %></span>
+    <div class="kpi-main">
+      <div class="kpi-label"><%= t("marketingos.dashboard.kpi.scheduled") %></div>
+      <div class="kpi-value"><%= @fb_scheduled_count %></div>
+      <div class="kpi-note"><%= @fb_failed_count.positive? ? t("marketingos.dashboard.kpi.failed_note", count: @fb_failed_count) : t("marketingos.dashboard.kpi.no_failures") %></div>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon" style="background:var(--teal-50);color:#0B7E70"><%= icon("facebook", size: 20) %></span>
+    <div class="kpi-main">
+      <div class="kpi-label"><%= t("marketingos.dashboard.kpi.published") %></div>
+      <div class="kpi-value"><%= @fb_published_30d %></div>
+      <%= delta_pill(@fb_published_30d, @fb_published_prev) %>
+    </div>
+    <%= sparkline_svg(@chart_published.last(14), color: "#0FAD9A") %>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon" style="background:var(--teal-50);color:#0B7E70"><%= icon("cpu", size: 20) %></span>
+    <div class="kpi-main">
+      <div class="kpi-label"><%= t("marketingos.dashboard.kpi.ai_calls") %></div>
+      <div class="kpi-value"><%= @ai_calls_30d %></div>
+      <%= delta_pill(@ai_calls_30d, @ai_calls_prev) %>
+    </div>
+  </div>
 </div>
 
 <div class="ws-grid">
   <div class="ws-main">
+    <%# ── Biểu đồ 30 ngày ── %>
+    <div class="card">
+      <div class="card-head">
+        <div><h2><%= t("marketingos.dashboard.chart_title") %></h2><div class="sub"><%= t("marketingos.dashboard.chart_sub", days: @chart_days.size) %></div></div>
+        <span class="spacer"></span>
+        <span class="pill pill-gray"><%= t("marketingos.dashboard.last_days", days: @chart_days.size) %></span>
+      </div>
+      <div class="card-body chart-wrap" data-controller="chart">
+        <div class="chart-tip" data-chart-target="tip" hidden></div>
+        <%= line_chart_svg(days: @chart_days, series: { created: @chart_created, published: @chart_published }) %>
+        <div class="chart-legend">
+          <span><i style="background:#4F46E5"></i> <%= t("marketingos.dashboard.series.created") %></span>
+          <span><i style="background:#0FAD9A"></i> <%= t("marketingos.dashboard.series.published") %></span>
+        </div>
+        <details class="chart-table"><summary><%= t("marketingos.dashboard.chart_table") %></summary>
+          <table class="list"><thead><tr><th><%= t("marketingos.dashboard.chart_day") %></th><th><%= t("marketingos.dashboard.series.created") %></th><th><%= t("marketingos.dashboard.series.published") %></th></tr></thead>
+            <tbody><% @chart_days.each_with_index do |d, i| %><tr><td><%= fmt_date(d) %></td><td><%= @chart_created[i] %></td><td><%= @chart_published[i] %></td></tr><% end %></tbody></table>
+        </details>
+      </div>
+    </div>
+
+    <%# ── Nội dung gần đây ── %>
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.dashboard.recent_content") %></h2><span class="spacer"></span>
+        <% if @is_internal %><%= link_to t("marketingos.common.view_all"), content_studio_path, class: "btn btn-ghost btn-sm" %><% end %></div>
+      <div class="card-body">
+        <% if @recent_content.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.studio.empty"), hint: t("marketingos.studio.empty_hint"), icon_name: "pen" %>
+        <% else %>
+          <div class="content-cards">
+            <% @recent_content.each do |a| %>
+              <%= link_to artifact_path(a), class: "content-card" do %>
+                <div class="content-card-art <%= { 'brief' => '', 'persona' => 'teal', 'content_plan' => 'amber', 'social_post' => 'blue', 'video_script' => 'rose' }[a.kind] %>"><%= icon({ 'video_script' => 'video', 'social_post' => 'facebook', 'persona' => 'users', 'content_plan' => 'layers' }.fetch(a.kind, 'doc'), size: 28) %></div>
+                <div class="content-card-kind"><%= kind_label(a.kind) %><% if a.ai_generated? %> · AI<% end %></div>
+                <div class="content-card-title"><%= a.title %></div>
+                <div class="content-card-foot"><%= render "shared/status_pill", status: a.approval_status %> <span><%= fmt_datetime(a.updated_at) %></span></div>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.dashboard.awaiting_you") %></h2>
+        <span class="sub"><%= t("marketingos.dashboard.awaiting_sub") %></span>
+        <span class="spacer"></span>
+        <% if @is_internal && @fb_pending_count.positive? %><%= link_to t("marketingos.facebook.posts.filters.pending"), facebook_posts_path(filter: "pending"), class: "btn btn-ghost btn-sm" %><% end %>
+      </div>
+      <div class="card-body tight">
+        <% if @my_approvals.empty? && @fb_pending_count.zero? %>
+          <%= render "shared/empty_state",
+                message: policy_for.allowed?(:approve) ? t("marketingos.dashboard.no_approvals") : t("marketingos.dashboard.no_approval_role"),
+                icon_name: "check" %>
+        <% else %>
+          <% if @fb_pending_count.positive? && policy_for.allowed?(:approve) %>
+            <div class="task-row">
+              <span class="thumb"><%= icon("facebook", size: 20) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= link_to t("marketingos.dashboard.fb_pending_title", count: @fb_pending_count), facebook_posts_path(filter: "pending") %></div>
+                <div class="task-sub"><%= t("marketingos.dashboard.fb_pending_sub") %></div>
+              </div>
+              <div class="task-right"><%= link_to t("marketingos.dashboard.open_to_review"), facebook_posts_path(filter: "pending"), class: "btn btn-primary btn-sm" %></div>
+            </div>
+          <% end %>
+          <% @my_approvals.each do |a| %>
+            <div class="approval-card">
+              <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
+              <div class="approval-main">
+                <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
+                <div class="approval-sub"><%= a.campaign.name %> · v<%= a.version %> · <%= fmt_datetime(a.updated_at) %></div>
+                <div class="approval-foot"><%= link_to t("marketingos.dashboard.open_to_review"), artifact_path(a), class: "btn btn-primary btn-sm" %></div>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-head">
         <h2><%= t("marketingos.dashboard.my_tasks") %></h2>
         <span class="sub"><%= t("marketingos.dashboard.open_workspace", count: @tasks_open_count) %></span>
-        <span class="spacer"></span>
       </div>
       <div class="card-body tight">
         <% if @my_tasks.empty? %>
@@ -46,45 +198,13 @@
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <h2><%= t("marketingos.dashboard.awaiting_you") %></h2>
-        <span class="sub"><%= t("marketingos.dashboard.awaiting_sub") %></span>
-        <span class="spacer"></span>
-        <%= link_to t("marketingos.nav.content_studio"), content_studio_path, class: "btn btn-ghost btn-sm" if @is_internal %>
-      </div>
-      <div class="card-body tight">
-        <% if @my_approvals.empty? %>
-          <%= render "shared/empty_state",
-                message: policy_for.allowed?(:approve) ? t("marketingos.dashboard.no_approvals") : t("marketingos.dashboard.no_approval_role"),
-                icon_name: "check" %>
-        <% else %>
-          <% @my_approvals.each do |a| %>
-            <div class="approval-card">
-              <span class="thumb <%= { "brief" => "", "persona" => "teal", "content_plan" => "amber", "deliverable" => "rose" }[a.kind] %>"><%= a.kind.first(2).upcase %></span>
-              <div class="approval-main">
-                <div class="approval-title"><%= link_to a.title, artifact_path(a) %></div>
-                <div class="approval-sub"><%= a.campaign.name %> · v<%= a.version %> · <%= fmt_datetime(a.updated_at) %></div>
-                <div class="approval-foot">
-                  <%= link_to t("marketingos.dashboard.open_to_review"), artifact_path(a), class: "btn btn-primary btn-sm" %>
-                </div>
-              </div>
-            </div>
-          <% end %>
-        <% end %>
-      </div>
-    </div>
-
-    <div class="card">
       <div class="card-head"><h2><%= t("marketingos.dashboard.attention") %></h2><span class="sub"><%= t("marketingos.dashboard.attention_sub") %></span></div>
       <div class="card-body tight">
         <% if @attention_campaigns.empty? %>
           <%= render "shared/empty_state", message: t("marketingos.dashboard.no_attention"), icon_name: "check" %>
         <% else %>
           <% @attention_campaigns.each do |c| %>
-            <%
-              overdue = c.tasks.overdue.count
-              pending = c.artifacts.where(approval_status: "in_review").count
-            %>
+            <% overdue = c.tasks.overdue.count; pending = c.artifacts.where(approval_status: "in_review").count %>
             <div class="task-row">
               <span class="thumb"><%= initials(c.client.name) %></span>
               <div class="task-main">
@@ -103,27 +223,85 @@
   </div>
 
   <div class="ws-right">
+    <%# ── Lịch đăng sắp tới ── %>
     <div class="card">
-      <div class="card-head"><h2><%= t("marketingos.dashboard.this_week") %></h2><span class="spacer"></span><%= link_to t("marketingos.nav.calendar"), calendar_path, class: "btn btn-ghost btn-sm" %></div>
-      <div class="card-body">
-        <% if @week_events.empty? %>
-          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_events_week"), icon_name: "calendar" %>
+      <div class="card-head"><h2><%= t("marketingos.dashboard.upcoming_schedule") %></h2><span class="spacer"></span>
+        <% if @is_internal %><%= link_to t("marketingos.common.view_all"), facebook_posts_path(filter: "scheduled"), class: "btn btn-ghost btn-sm" %><% end %></div>
+      <div class="card-body tight">
+        <div class="sub" style="font-size:12.5px;color:var(--muted);padding:4px 0 8px"><%= fmt_date(Date.current) %></div>
+        <% if @fb_upcoming.empty? && @week_events.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.dashboard.no_schedule"), hint: (@is_internal && @fb_connection.nil? ? t("marketingos.dashboard.no_schedule_hint") : nil), icon_name: "calendar" %>
         <% else %>
-          <% @week_events.first(5).each do |e| %>
-            <div class="meet-when" style="margin-bottom:12px">
-              <div class="meet-date">
-                <div class="d"><%= e.starts_at.in_time_zone.strftime("%d") %></div>
-                <div class="m"><%= e.starts_at.in_time_zone.strftime("%b") %></div>
+          <% @fb_upcoming.each do |p| %>
+            <div class="sched-row">
+              <div class="sched-time"><%= p.scheduled_local.strftime("%H:%M") %><small><%= p.scheduled_local.strftime("%d/%m") %></small></div>
+              <span class="sched-icon fb"><%= icon("facebook", size: 14) %></span>
+              <div class="sched-main">
+                <div class="sched-title"><%= link_to (p.title.presence || p.message.to_s.truncate(50)), facebook_post_path(p) %></div>
+                <div class="sched-sub"><%= p.facebook_page_connection.page_name %></div>
               </div>
-              <div style="min-width:0">
-                <div style="font-weight:700;font-size:14px"><%= link_to e.title, campaign_path(e.campaign) %></div>
-                <div style="font-size:12.5px;color:var(--muted)"><%= fmt_datetime(e.starts_at) %> · <%= e.campaign.name %></div>
+              <%= fb_post_status_pill(p) %>
+            </div>
+          <% end %>
+          <% @week_events.first(4).each do |e| %>
+            <div class="sched-row">
+              <div class="sched-time"><%= e.starts_at.in_time_zone.strftime("%H:%M") %><small><%= e.starts_at.in_time_zone.strftime("%d/%m") %></small></div>
+              <span class="sched-icon ev"><%= icon("calendar", size: 14) %></span>
+              <div class="sched-main">
+                <div class="sched-title"><%= link_to e.title, campaign_path(e.campaign) %></div>
+                <div class="sched-sub"><%= e.campaign.name %></div>
               </div>
             </div>
           <% end %>
         <% end %>
       </div>
     </div>
+
+    <%# ── Kênh mạng xã hội ── %>
+    <% if @is_internal %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.dashboard.channels") %></h2><span class="spacer"></span>
+          <%= link_to t("marketingos.dashboard.manage_channels"), facebook_connection_path, class: "btn btn-ghost btn-sm" %></div>
+        <div class="card-body tight">
+          <div class="chan-row">
+            <span class="chan-icon fb"><%= icon("facebook", size: 18) %></span>
+            <div class="chan-main"><div class="chan-name">Facebook Fanpage</div>
+              <div class="chan-sub"><%= @fb_connection ? @fb_connection.page_name : t("marketingos.dashboard.not_connected") %></div></div>
+            <% if @fb_connection %>
+              <%= fb_connection_status_pill(@fb_connection) %>
+              <% if can_edit %><%= link_to t("marketingos.dashboard.post"), new_facebook_post_path, class: "btn btn-secondary btn-sm" %><% end %>
+            <% else %>
+              <span class="pill pill-rose"><span class="pdot"></span><%= t("marketingos.dashboard.not_connected") %></span>
+              <% if can_manage %><%= link_to t("marketingos.dashboard.connect"), facebook_connection_path, class: "btn btn-primary btn-sm" %><% end %>
+            <% end %>
+          </div>
+          <% [["instagram", "Instagram"], ["tiktok", "TikTok"], ["youtube", "YouTube"]].each do |key, name| %>
+            <div class="chan-row">
+              <span class="chan-icon <%= key %>"><%= icon(key, size: 18) %></span>
+              <div class="chan-main"><div class="chan-name"><%= name %></div><div class="chan-sub"><%= t("marketingos.dashboard.coming_soon") %></div></div>
+              <span class="pill pill-gray"><%= t("marketingos.dashboard.coming_soon") %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%# ── Hoạt động đăng bài gần đây ── %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.dashboard.fb_recent") %></h2></div>
+        <div class="card-body tight">
+          <% if @fb_recent.empty? %>
+            <%= render "shared/empty_state", message: t("marketingos.facebook.posts.no_activity"), icon_name: "clock" %>
+          <% else %>
+            <% @fb_recent.each do |p| %>
+              <div class="kv">
+                <span class="k"><%= fb_post_status_pill(p) %> <%= link_to (p.title.presence || p.message.to_s.truncate(36)), facebook_post_path(p) %></span>
+                <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(p.published_at || p.updated_at) %></span>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
 
     <div class="card">
       <div class="card-head"><h2><%= t("marketingos.dashboard.recent_activity") %></h2></div>

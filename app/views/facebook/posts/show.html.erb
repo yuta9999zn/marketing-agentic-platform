@@ -1,0 +1,179 @@
+<% content_for(:title) { "#{@post.title.presence || t('marketingos.facebook.posts.title')} · MarketingOS" } %>
+<%
+  can_edit = policy_for.allowed?(:edit)
+  can_approve = policy_for.allowed?(:approve)
+  conn = @post.facebook_page_connection
+%>
+<div class="breadcrumb"><%= link_to t("marketingos.facebook.posts.title"), facebook_posts_path %> <%= icon("chev-r", size: 14) %> <%= @post.title.presence || "##{@post.id}" %></div>
+<div class="page-head">
+  <div>
+    <h1><%= @post.title.presence || t("marketingos.facebook.posts.untitled") %></h1>
+    <div class="sub"><%= fb_post_status_pill(@post) %>
+      <% if @post.ai_generated? %><span class="pill pill-violet">AI-generated</span><% end %>
+      <% if @post.published_via == "mock" %><span class="pill pill-amber">MOCK</span><% end %>
+      · <%= icon("facebook", size: 13) %> <%= conn.page_name %>
+      <% if @post.campaign %> · <%= link_to @post.campaign.name, campaign_path(@post.campaign) %><% end %>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <% if can_edit && @post.editable? %><%= link_to t("marketingos.common.edit"), edit_facebook_post_path(@post), class: "btn btn-secondary" %><% end %>
+</div>
+
+<% if @post.failed? %>
+  <div class="flash flash-alert">
+    <b><%= fb_error_label(@post.last_error_code) %></b>
+    <div style="font-size:13px;margin-top:3px"><%= @post.last_error %></div>
+    <% fix = t("marketingos.facebook.issue_fix.#{@post.last_error_code}", default: "") %>
+    <% if fix.present? %><div style="font-size:13px;margin-top:3px">→ <%= fix %></div><% end %>
+  </div>
+<% elsif @post.rejection_note.present? && @post.draft? %>
+  <div class="flash flash-alert"><b><%= t("marketingos.facebook.posts.rejected_note") %></b> <%= @post.rejection_note %></div>
+<% elsif @post.published? %>
+  <div class="flash flash-notice"><%= t("marketingos.facebook.posts.published_at", at: fmt_datetime(@post.published_at)) %>
+    <% if @post.permalink_url %> · <%= link_to t("marketingos.facebook.posts.view_on_facebook"), @post.permalink_url, target: "_blank", rel: "noopener" %><% end %>
+    · ID <code><%= @post.facebook_post_id %></code>
+    <% if @post.published_via == "mock" %> · <b><%= t("marketingos.facebook.posts.mock_notice") %></b><% end %></div>
+<% end %>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.preview") %></h2><span class="sub"><%= t("marketingos.facebook.post_type.#{@post.post_type}") %></span></div>
+      <div class="card-body"><%= render "facebook/posts/preview", post: @post %></div>
+    </div>
+
+    <% if @post.ai_generated? && (@post.image_suggestions.any? || Array(@post.ai_metadata["missing_data"]).any?) %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.facebook.posts.ai_extras") %></h2></div>
+        <div class="card-body" style="font-size:13.5px">
+          <% if @post.image_suggestions.any? %>
+            <b><%= t("marketingos.facebook.posts.image_suggestions") %></b>
+            <ul style="margin:4px 0 10px;padding-left:18px"><% @post.image_suggestions.each do |s| %><li><%= s %></li><% end %></ul>
+          <% end %>
+          <% if Array(@post.ai_metadata["missing_data"]).any? %>
+            <b><%= t("marketingos.facebook.posts.missing_data") %></b>
+            <ul style="margin:4px 0 0;padding-left:18px;color:var(--muted)"><% @post.ai_metadata["missing_data"].each do |s| %><li><%= s %></li><% end %></ul>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.attempts") %></h2></div>
+      <div class="card-body tight">
+        <% if @attempts.empty? %>
+          <%= render "shared/empty_state", message: t("marketingos.facebook.posts.no_attempts"), icon_name: "clock" %>
+        <% else %>
+          <table class="list">
+            <thead><tr><th>#</th><th><%= t("marketingos.facebook.posts.attempt_result") %></th><th><%= t("marketingos.facebook.posts.attempt_error") %></th><th><%= t("marketingos.facebook.posts.attempt_time") %></th></tr></thead>
+            <tbody>
+              <% @attempts.each do |a| %>
+                <tr>
+                  <td><%= a.attempt_number %><% if a.mock? %> <span class="pill pill-gray">mock</span><% end %></td>
+                  <td><span class="pill <%= { 'success' => 'pill-teal', 'transient_failure' => 'pill-amber', 'permanent_failure' => 'pill-rose', 'skipped' => 'pill-gray', 'started' => 'pill' }[a.outcome] %>"><%= t("marketingos.facebook.attempt_outcome.#{a.outcome}") %></span></td>
+                  <td style="font-size:13px;color:var(--muted)">
+                    <% if a.error_code.present? %><b><%= fb_error_label(a.error_code) %></b> <% end %>
+                    <%= a.error_message.to_s.truncate(140) %>
+                    <% if a.fbtrace_id.present? %><div style="font-size:11px">fbtrace_id: <%= a.fbtrace_id %></div><% end %>
+                  </td>
+                  <td style="white-space:nowrap;font-size:13px"><%= fmt_datetime(a.started_at || a.created_at) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-right">
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.actions") %></h2></div>
+      <div class="card-body fb-actions">
+        <% if @post.draft? && can_edit %>
+          <%= button_to t("marketingos.facebook.posts.submit"), submit_facebook_post_path(@post), class: "btn btn-primary" %>
+          <div class="fb-action-hint"><%= t("marketingos.facebook.posts.submit_hint") %></div>
+        <% end %>
+
+        <% if @post.pending_approval? %>
+          <% if can_approve %>
+            <%= button_to t("marketingos.facebook.posts.approve"), approve_facebook_post_path(@post), class: "btn btn-success",
+                  form: { data: { turbo_confirm: t("marketingos.facebook.posts.approve_confirm") } } %>
+            <div class="fb-action-hint"><%= @post.scheduled_at ? t("marketingos.facebook.posts.approve_hint_scheduled", at: fb_local_time(@post)) : t("marketingos.facebook.posts.approve_hint_unscheduled") %></div>
+            <%= form_with url: reject_facebook_post_path(@post), method: :post, style: "margin-top:10px" do |f| %>
+              <div class="field"><%= f.text_area :note, rows: 2, placeholder: t("marketingos.facebook.posts.reject_note") %></div>
+              <%= f.button t("marketingos.facebook.posts.reject"), type: "submit", class: "btn btn-danger btn-sm" %>
+            <% end %>
+          <% else %>
+            <div class="fb-action-hint"><%= t("marketingos.facebook.posts.awaiting_approver") %></div>
+          <% end %>
+        <% end %>
+
+        <% if @post.schedulable? && can_edit %>
+          <%= form_with url: schedule_facebook_post_path(@post), method: :post do |f| %>
+            <div class="field">
+              <%= f.label :scheduled_at, t("marketingos.facebook.posts.form.scheduled_at") %>
+              <%= f.datetime_local_field :scheduled_at, value: (@post.scheduled_local || 1.hour.from_now.in_time_zone(@post.timezone)).strftime("%Y-%m-%dT%H:%M"), required: true %>
+            </div>
+            <div class="field">
+              <%= f.label :timezone, t("marketingos.facebook.posts.form.timezone") %>
+              <%= f.select :timezone, @timezones.map { |tz| [tz, tz] }, selected: @post.timezone %>
+            </div>
+            <%= f.button (@post.scheduled? ? t("marketingos.facebook.posts.reschedule") : t("marketingos.facebook.posts.schedule")), type: "submit", class: "btn btn-primary" %>
+          <% end %>
+          <%= button_to t("marketingos.facebook.posts.publish_now"), publish_now_facebook_post_path(@post), class: "btn btn-success",
+                form: { data: { turbo_confirm: t("marketingos.facebook.posts.publish_now_confirm", page: conn.page_name) } } %>
+          <% if @post.scheduled? %>
+            <%= button_to t("marketingos.facebook.posts.unschedule"), unschedule_facebook_post_path(@post), class: "btn btn-secondary btn-sm" %>
+          <% end %>
+          <% unless conn.publishable? %>
+            <div class="fb-issue fb-issue-warning"><%= icon("alert", size: 16) %><div><%= t("marketingos.facebook.issues.#{conn.blocked_reason}", default: conn.blocked_reason.to_s) %></div></div>
+          <% end %>
+        <% end %>
+
+        <% if @post.retryable? && can_edit %>
+          <%= form_with url: retry_facebook_post_path(@post), method: :post do |f| %>
+            <% if @post.needs_manual_check? %>
+              <label style="font-weight:500;font-size:13px;display:block;margin-bottom:8px"><%= f.check_box :confirm, {}, "1", "0" %> <%= t("marketingos.facebook.posts.retry_confirm_unknown") %></label>
+            <% end %>
+            <%= f.button t("marketingos.facebook.posts.retry"), type: "submit", class: "btn btn-primary" %>
+          <% end %>
+        <% end %>
+
+        <% if @post.cancellable? && can_edit %>
+          <%= button_to t("marketingos.facebook.posts.cancel_post"), cancel_facebook_post_path(@post), class: "btn btn-ghost btn-sm",
+                form: { data: { turbo_confirm: t("marketingos.facebook.posts.cancel_confirm") } } %>
+        <% end %>
+        <% if @post.cancelled? && can_edit %>
+          <%= button_to t("marketingos.facebook.posts.reopen"), reopen_facebook_post_path(@post), class: "btn btn-secondary btn-sm" %>
+        <% end %>
+        <% if %w[draft cancelled].include?(@post.status) && policy_for.allowed?(:manage) %>
+          <%= button_to t("marketingos.common.delete"), facebook_post_path(@post), method: :delete, class: "btn btn-ghost btn-sm",
+                form: { data: { turbo_confirm: t("marketingos.facebook.posts.delete_confirm") } } %>
+        <% end %>
+        <% if @post.published? %><div class="fb-action-hint"><%= t("marketingos.facebook.posts.published_locked") %></div><% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.details") %></h2></div>
+      <div class="card-body tight">
+        <div class="kv"><span class="k"><%= t("marketingos.facebook.posts.created_by") %></span><span class="v"><%= @post.created_by&.name || "—" %></span></div>
+        <div class="kv"><span class="k"><%= t("marketingos.facebook.posts.approved_by") %></span><span class="v"><%= @post.approved_by&.name || (@post.approval_source == "auto_publish" ? t("marketingos.facebook.posts.auto_approved") : "—") %></span></div>
+        <div class="kv"><span class="k"><%= t("marketingos.facebook.posts.form.scheduled_at") %></span><span class="v"><%= fb_local_time(@post).presence || "—" %></span></div>
+        <div class="kv"><span class="k"><%= t("marketingos.facebook.posts.attempts_count") %></span><span class="v"><%= @post.attempts %>/<%= @post.max_attempts %></span></div>
+        <div class="kv"><span class="k">Idempotency</span><span class="v" style="font-size:11px;font-weight:500"><%= @post.idempotency_key %></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.posts.audit") %></h2></div>
+      <div class="card-body tight">
+        <% @audit.each do |a| %>
+          <div class="kv"><span class="k"><%= a.action.delete_prefix("facebook.post.") %> <% if a.user %><b style="color:var(--ink)"><%= a.user.name %></b><% end %></span>
+            <span class="v" style="font-weight:500;color:var(--muted)"><%= fmt_datetime(a.created_at) %></span></div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

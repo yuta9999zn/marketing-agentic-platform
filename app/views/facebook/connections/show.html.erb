@@ -1,0 +1,212 @@
+<% content_for(:title) { "#{t('marketingos.facebook.connection.title')} · MarketingOS" } %>
+<% can_manage = policy_for.allowed?(:manage) %>
+<% can_admin = policy_for.allowed?(:admin) %>
+
+<div class="page-head">
+  <div>
+    <h1><%= icon("facebook", size: 26) %> <%= t("marketingos.facebook.connection.title") %></h1>
+    <div class="sub"><%= t("marketingos.facebook.connection.subtitle") %></div>
+  </div>
+  <span class="spacer"></span>
+  <%= fb_mode_badge %>
+  <%= link_to t("marketingos.facebook.posts.title"), facebook_posts_path, class: "btn btn-secondary" %>
+</div>
+
+<% if @mode == :unconfigured %>
+  <div class="flash flash-alert">
+    <b><%= t("marketingos.facebook.connection.unconfigured") %></b>
+    <div style="font-size:13px;margin-top:4px"><%= t("marketingos.facebook.connection.unconfigured_hint") %>
+      <code>docs/FACEBOOK_PUBLISHING.md</code></div>
+  </div>
+<% end %>
+
+<div class="ws-grid">
+  <div class="ws-main">
+    <%# ── Bước chọn Page sau OAuth ── %>
+    <% if @authorization && @authorization.pages.any? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.facebook.connection.select_title") %></h2>
+          <span class="sub"><%= t("marketingos.facebook.connection.select_sub", minutes: ((@authorization.expires_at - Time.current) / 60).ceil) %></span></div>
+        <div class="card-body tight">
+          <% @authorization.pages.each do |p| %>
+            <div class="task-row">
+              <span class="thumb"><%= initials(p["name"]) %></span>
+              <div class="task-main">
+                <div class="task-title"><%= p["name"] %> <span class="pill pill-gray"><%= p["category"] %></span></div>
+                <div class="task-sub">ID <%= p["id"] %><% if p["link"].present? %> · <%= link_to p["link"].sub("https://www.", ""), p["link"], target: "_blank", rel: "noopener" %><% end %>
+                  <% missing = Facebook::Config::REQUIRED_PAGE_TASKS - Array(p["tasks"]) %>
+                  <% if missing.any? %><span class="blocked-tag"><%= t("marketingos.facebook.issues.missing_page_role", tasks: missing.join(", ")) %></span><% end %>
+                </div>
+              </div>
+              <div class="task-right">
+                <% if can_manage %>
+                  <%= button_to t("marketingos.facebook.connection.select"), select_page_facebook_connection_path(page_id: p["id"]), class: "btn btn-primary btn-sm" %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# ── Trạng thái kết nối ── %>
+    <div class="card">
+      <div class="card-head">
+        <h2><%= t("marketingos.facebook.connection.status_title") %></h2>
+        <span class="spacer"></span>
+        <% if @connection %><%= fb_connection_status_pill(@connection) %><% end %>
+      </div>
+      <div class="card-body">
+        <% if @connection.nil? %>
+          <%= render "shared/empty_state", message: t("marketingos.facebook.connection.none"),
+                hint: t("marketingos.facebook.connection.none_hint"), icon_name: "facebook" %>
+        <% else %>
+          <div class="fb-page-card">
+            <span class="thumb"><%= initials(@connection.page_name) %></span>
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:700;font-size:16px"><%= @connection.page_name %>
+                <% if @connection.mock? %><span class="pill pill-amber">MOCK</span><% end %></div>
+              <div class="task-sub"><%= @connection.page_category %> · ID <%= @connection.page_id %> ·
+                <%= link_to @connection.permalink.sub("https://www.", ""), @connection.permalink, target: "_blank", rel: "noopener" %></div>
+              <div class="task-sub" style="margin-top:4px">
+                <%= t("marketingos.facebook.connection.connected_by", name: @connection.connected_by&.name || "—", at: fmt_datetime(@connection.created_at)) %>
+                <% if @connection.last_checked_at %> · <%= t("marketingos.facebook.connection.last_checked", at: fmt_datetime(@connection.last_checked_at)) %><% end %>
+              </div>
+            </div>
+          </div>
+
+          <div class="kv-grid" style="margin-top:14px">
+            <div class="kv"><span class="k"><%= t("marketingos.facebook.connection.scopes") %></span>
+              <span class="v"><% Facebook::Config::REQUIRED_SCOPES.each do |s| %>
+                <span class="pill <%= Array(@connection.granted_scopes).include?(s) ? 'pill-teal' : (@connection.granted_scopes.blank? ? 'pill-gray' : 'pill-rose') %>"><%= s %></span>
+              <% end %></span></div>
+            <div class="kv"><span class="k"><%= t("marketingos.facebook.connection.page_role") %></span>
+              <span class="v"><%= @connection.page_tasks.presence&.join(", ") || "—" %></span></div>
+            <div class="kv"><span class="k"><%= t("marketingos.facebook.connection.token_expiry") %></span>
+              <span class="v"><%= @connection.token_expires_at ? fmt_datetime(@connection.token_expires_at) : t("marketingos.facebook.connection.token_no_expiry") %></span></div>
+            <div class="kv"><span class="k"><%= t("marketingos.facebook.connection.api_version") %></span>
+              <span class="v"><%= Facebook::Config.graph_version %></span></div>
+          </div>
+
+          <% if @report && @report.issues.any? %>
+            <div class="fb-issues">
+              <% @report.issues.each do |i| %>
+                <div class="fb-issue fb-issue-<%= i.severity %>">
+                  <%= icon(i.severity == :error ? "alert" : "clock", size: 16) %>
+                  <div><b><%= fb_issue_text(i) %></b>
+                    <% fix = fb_issue_fix(i) %><% if fix.present? %><div class="fb-issue-fix"><%= fix %></div><% end %></div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <div class="camp-actions" style="margin-top:16px">
+            <% if can_manage %>
+              <%= button_to t("marketingos.facebook.connection.check"), check_facebook_connection_path, class: "btn btn-secondary" %>
+              <%= button_to t("marketingos.facebook.connection.reconnect"), start_facebook_connection_path(page_url: @connection.page_id), class: "btn btn-secondary" %>
+              <%= button_to t("marketingos.facebook.connection.disconnect"), facebook_connection_path, method: :delete, class: "btn btn-danger",
+                    form: { data: { turbo_confirm: t("marketingos.facebook.connection.disconnect_confirm") } } %>
+            <% end %>
+            <%= link_to t("marketingos.facebook.posts.new"), new_facebook_post_path, class: "btn btn-primary" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Kết nối mới / dán link fanpage ── %>
+    <% if can_manage && @connection.nil? %>
+      <div class="card">
+        <div class="card-head"><h2><%= t("marketingos.facebook.connection.connect_title") %></h2></div>
+        <div class="card-body">
+          <%= form_with url: start_facebook_connection_path, method: :post do |f| %>
+            <div class="field">
+              <%= f.label :page_url, t("marketingos.facebook.connection.page_url") %>
+              <%= f.text_field :page_url, placeholder: "https://www.facebook.com/ten-fanpage", autocomplete: "off" %>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:4px"><%= t("marketingos.facebook.connection.page_url_hint") %></div>
+            </div>
+            <%= f.button type: "submit", class: "btn btn-primary", disabled: @mode == :unconfigured do %>
+              <%= icon("facebook", size: 16) %> <%= t("marketingos.facebook.connection.connect_button") %>
+            <% end %>
+          <% end %>
+          <ol class="fb-steps">
+            <li><%= t("marketingos.facebook.connection.step1") %></li>
+            <li><%= t("marketingos.facebook.connection.step2") %></li>
+            <li><%= t("marketingos.facebook.connection.step3") %></li>
+          </ol>
+          <div style="font-size:12.5px;color:var(--muted)"><%= t("marketingos.facebook.connection.redirect_uri_note") %> <code><%= @redirect_uri %></code></div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="ws-right">
+    <%# ── An toàn: duyệt bắt buộc, auto-publish, kill switch ── %>
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.connection.safety_title") %></h2></div>
+      <div class="card-body">
+        <div class="kv"><span class="k"><%= t("marketingos.facebook.connection.workspace_switch") %></span>
+          <span class="v">
+            <% if current_organization.facebook_publishing_paused? %>
+              <span class="pill pill-rose"><%= t("marketingos.facebook.connection.paused") %></span>
+            <% else %>
+              <span class="pill pill-teal"><%= t("marketingos.facebook.connection.running") %></span>
+            <% end %>
+          </span></div>
+        <% unless Facebook::Config.publishing_enabled? %>
+          <div class="fb-issue fb-issue-warning" style="margin-top:8px"><%= icon("alert", size: 16) %><div><%= t("marketingos.facebook.issues.deploy_kill_switch") %></div></div>
+        <% end %>
+        <% if can_admin %>
+          <div style="margin-top:10px">
+            <% if current_organization.facebook_publishing_paused? %>
+              <%= button_to t("marketingos.facebook.connection.resume_all"), kill_switch_facebook_connection_path(paused: false), class: "btn btn-success btn-sm" %>
+            <% else %>
+              <%= button_to t("marketingos.facebook.connection.pause_all"), kill_switch_facebook_connection_path(paused: true), class: "btn btn-danger btn-sm",
+                    form: { data: { turbo_confirm: t("marketingos.facebook.connection.pause_confirm") } } %>
+            <% end %>
+          </div>
+        <% end %>
+
+        <% if @connection && can_manage %>
+          <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+          <%= form_with url: facebook_connection_path, method: :patch do |f| %>
+            <div class="field">
+              <label><input type="hidden" name="connection[publishing_paused]" value="0">
+                <input type="checkbox" name="connection[publishing_paused]" value="1" <%= "checked" if @connection.publishing_paused? %>>
+                <%= t("marketingos.facebook.connection.pause_page") %></label>
+            </div>
+            <div class="field">
+              <label><input type="hidden" name="connection[auto_publish_enabled]" value="0">
+                <input type="checkbox" name="connection[auto_publish_enabled]" value="1" <%= "checked" if @connection.auto_publish_enabled? %>>
+                <%= t("marketingos.facebook.connection.auto_publish") %></label>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px"><%= t("marketingos.facebook.connection.auto_publish_hint") %></div>
+            </div>
+            <div class="field">
+              <label><%= t("marketingos.facebook.connection.auto_publish_campaigns") %></label>
+              <input type="hidden" name="auto_publish_campaign_ids[]" value="">
+              <div class="fb-check-list">
+                <% @campaigns.each do |c| %>
+                  <label class="fb-check"><input type="checkbox" name="auto_publish_campaign_ids[]" value="<%= c.id %>" <%= "checked" if c.facebook_auto_publish? %>> <%= c.name %></label>
+                <% end %>
+                <% if @campaigns.empty? %><span style="color:var(--muted);font-size:13px"><%= t("marketingos.campaigns.empty") %></span><% end %>
+              </div>
+            </div>
+            <div class="field">
+              <%= f.label :blocked_terms, t("marketingos.facebook.connection.blocked_terms") %>
+              <%= f.text_area :blocked_terms, value: @connection.blocked_terms, rows: 3, placeholder: t("marketingos.facebook.connection.blocked_terms_placeholder") %>
+            </div>
+            <%= f.button t("marketingos.common.save"), type: "submit", class: "btn btn-primary btn-sm" %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><%= t("marketingos.facebook.connection.how_title") %></h2></div>
+      <div class="card-body" style="font-size:13.5px;color:var(--muted)">
+        <p style="margin:0 0 8px"><%= t("marketingos.facebook.connection.how_1") %></p>
+        <p style="margin:0 0 8px"><%= t("marketingos.facebook.connection.how_2") %></p>
+        <p style="margin:0"><%= t("marketingos.facebook.connection.how_3") %></p>
+      </div>
+    </div>
+  </div>
+</div>

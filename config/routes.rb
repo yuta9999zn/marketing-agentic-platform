@@ -75,4 +75,29 @@ Rails.application.routes.draw do
     end
   end
   patch "workspace/ai", to: "workspace_settings#update_ai", as: :update_workspace_ai
+
+  # Facebook Fanpage: kết nối OAuth + duyệt + lên lịch + đăng tự động.
+  namespace :facebook do
+    resource :connection, only: %i[show update destroy] do
+      post :start          # bắt đầu OAuth (nhận link fanpage làm gợi ý)
+      get :callback        # redirect URI đăng ký trong Meta App
+      post :select_page    # chọn Page từ danh sách đã uỷ quyền
+      post :check          # chạy chẩn đoán
+      post :kill_switch    # tạm dừng/mở toàn workspace (admin)
+    end
+    resources :posts do
+      collection { post :generate }
+      member do
+        post :submit
+        post :approve
+        post :reject
+        post :schedule
+        post :unschedule
+        post :publish_now
+        post :cancel
+        post :retry
+        post :reopen
+      end
+    end
+  end
 end

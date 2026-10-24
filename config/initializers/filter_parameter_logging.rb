@@ -6,3 +6,6 @@
 Rails.application.config.filter_parameters += [
   :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc
 ]
+
+# Facebook: token, code OAuth và state không bao giờ vào log.
+Rails.application.config.filter_parameters += [:access_token, :code, :state, :ciphertext, :appsecret_proof]
